@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0b5394" />
+<meta name="description" content="GMSB · Cálculo de la ración diaria teórica para el cultivo y engorde de camarón." />
+<title>GMSB · Ración Diaria Camarón</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" type="image/png" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="GMSB Ración" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/styles.css" />
+<script>
+  // Aplica el tema guardado antes de pintar para evitar parpadeo.
+  (function () {
+    try {
+      var t = localStorage.getItem('gmsb_tema');
+      if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-header__inner">
+    <div class="app-brand">
+      <div class="app-brand__logo">GMSB</div>
+      <div class="app-brand__text">
+        <h1>GMSB — Ración Diaria 🦐</h1>
+        <p>Cálculo de alimentación teórica por laguna</p>
+      </div>
+    </div>
+    <div class="app-actions">
+      <button id="btnInstalar" class="btn btn--ghost btn-instalar">📲 Instalar app</button>
+      <button id="btnExportar" class="btn btn--ghost">⬇ Exportar</button>
+      <button id="btnImportar" class="btn btn--ghost">⬆ Importar</button>
+      <button id="btnTema" class="btn btn--ghost" title="Cambiar entre modo claro y oscuro" aria-label="Cambiar tema">🌙 Modo oscuro</button>
+      <input type="file" id="inputImportar" accept="application/json" hidden />
+    </div>
+  </div>
+</header>
+
+<main class="contenedor">
+
+  <!-- 1. Selector de laguna -->
+  <section class="tarjeta">
+    <h2 class="tarjeta__titulo"><span class="num">1</span> Selecciona la laguna</h2>
+    <div id="listaLagunas" class="lagunas-grid"></div>
+    <p id="sinLagunas" class="vacio" hidden>Aún no has registrado ninguna laguna. Crea la primera en el formulario de abajo.</p>
+  </section>
+
+  <!-- 2. Ración de hoy -->
+  <section class="tarjeta" id="panelRacion" hidden>
+    <h2 class="tarjeta__titulo"><span class="num">2</span> Ración de hoy</h2>
+    <div id="infoLaguna" class="info-laguna"></div>
+    <div id="racionContenido"></div>
+  </section>
+
+  <!-- 3. Formulario -->
+  <section class="tarjeta">
+    <h2 class="tarjeta__titulo"><span class="num">3</span> <span id="tituloFormulario">Nueva laguna</span></h2>
+    <form id="formLaguna" novalidate>
+      <input type="hidden" id="lagunaId" />
+
+      <div class="form-grid">
+        <div class="campo"><label>Código laguna / piscina</label><input type="text" id="nombre" placeholder="Ej. 213A" /></div>
+        <div class="campo"><label>Finca</label><input type="text" id="finca" placeholder="Ej. San Bernardo" /></div>
+        <div class="campo"><label>Área (Ha)</label><input type="number" step="any" id="areaHa" /></div>
+        <div class="campo"><label>Fecha de siembra</label><input type="date" id="fechaSiembra" /></div>
+        <div class="campo"><label>Densidad (PL/m²)</label><input type="number" step="any" id="densidad" /></div>
+        <div class="campo"><label>Sembrados (PL)</label><input type="number" step="any" id="sembrados" /></div>
+        <div class="campo"><label>Peso transferencia (g)</label><input type="number" step="any" id="pesoTransferencia" /></div>
+        <div class="campo"><label>Días proyectados de cultivo</label><input type="number" id="diasProyectados" /></div>
+        <div class="campo"><label>Mortalidad 1 (%)</label><input type="number" step="any" id="mortalidad1" value="10" /></div>
+        <div class="campo"><label>Mortalidad 2 (%)</label><input type="number" step="any" id="mortalidad2" value="3" /></div>
+        <div class="campo"><label>Ajuste de curva (6 ó 7)</label><input type="number" step="any" id="ajusteCurva" value="7" /></div>
+      </div>
+
+      <div class="form-seccion">
+        <h3>Tasas de crecimiento y alimentación por etapa</h3>
+        <p>Copia el % tal como aparece en tu Excel. El "día de corte" es donde tu hoja cambia de una etapa a la siguiente (ajústalo si no es 30 / 45 / 60 / 75).</p>
+        <div class="form-grid">
+          <div class="campo"><label>TA 30 días (%)</label><input type="number" step="any" id="ta30" value="230" /></div>
+          <div class="campo"><label>TC 30 días (%)</label><input type="number" step="any" id="tc30" value="275" /></div>
+          <div class="campo"><label>Día de corte → etapa 2</label><input type="number" step="any" id="corte1" value="30" /></div>
+          <div class="campo"><label>TA 45 días (%)</label><input type="number" step="any" id="ta45" value="200" /></div>
+          <div class="campo"><label>TC 45 días (%)</label><input type="number" step="any" id="tc45" value="280" /></div>
+          <div class="campo"><label>Día de corte → etapa 3</label><input type="number" step="any" id="corte2" value="45" /></div>
+          <div class="campo"><label>TA 56 días (%)</label><input type="number" step="any" id="ta56" value="200" /></div>
+          <div class="campo"><label>TC 56 días (%)</label><input type="number" step="any" id="tc56" value="280" /></div>
+          <div class="campo"><label>Día de corte → etapa 4</label><input type="number" step="any" id="corte3" value="60" /></div>
+          <div class="campo"><label>TA 75 días (%)</label><input type="number" step="any" id="ta75" value="150" /></div>
+          <div class="campo"><label>TC 75 días (%)</label><input type="number" step="any" id="tc75" value="250" /></div>
+          <div class="campo"><label>Día de corte → etapa final</label><input type="number" step="any" id="corte4" value="75" /></div>
+          <div class="campo"><label>TA Final (%)</label><input type="number" step="any" id="taFinal" value="110" /></div>
+          <div class="campo"><label>TC Final (%)</label><input type="number" step="any" id="tcFinal" value="140" /></div>
+        </div>
+      </div>
+
+      <div class="form-acciones">
+        <button type="submit" class="btn btn--primario">💾 Guardar laguna</button>
+        <button type="button" id="btnCancelarEdicion" class="btn btn--neutro" hidden>Cancelar edición</button>
+        <button type="button" id="btnEliminar" class="btn btn--peligro" hidden>🗑 Eliminar laguna</button>
+      </div>
+    </form>
+  </section>
+
+  <footer class="app-footer">
+    Los valores son teóricos, calculados según la tabla de referencia. Verifica siempre contra biometría real en campo.
+  </footer>
+
+</main>
+
+<script src="js/feeding-engine.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
