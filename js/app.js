@@ -80,6 +80,10 @@ function renderRacion() {
         <div class="etiqueta">Peso teórico</div>
       </div>
       <div class="ration-card">
+        <div class="valor">${r.lbHaDia.toFixed(1)}</div>
+        <div class="etiqueta">Lbs / Ha del día</div>
+      </div>
+      <div class="ration-card">
         <div class="valor">${r.taPct.toFixed(2)}%</div>
         <div class="etiqueta">% Tasa de alimentación</div>
       </div>
@@ -88,8 +92,8 @@ function renderRacion() {
         <div class="etiqueta">Supervivencia teórica</div>
       </div>
       <div class="ration-card">
-        <div class="valor">${r.sacos40kg.toFixed(2)}</div>
-        <div class="etiqueta">Sacos de 40 kg</div>
+        <div class="valor">${r.sacos25kg.toFixed(2)}</div>
+        <div class="etiqueta">Sacos de 25 kg</div>
       </div>
     </div>
   `;

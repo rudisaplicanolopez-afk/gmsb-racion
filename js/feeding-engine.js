@@ -111,7 +111,9 @@ function calcularRacion(laguna, fechaReferencia = new Date()) {
   const biomasaLb = (sembrados * supervivencia * pesoG) / G_PER_LB;
   const kgDia = (biomasaLb * ta) / KG_PER_LB;
   const lbDia = Math.floor(kgDia * KG_PER_LB);
-  const sacos40kg = kgDia / 40;
+  const areaHa = Number(laguna.areaHa) || 0;
+  const lbHaDia = areaHa > 0 ? (lbDia / areaHa) : 0;
+  const sacos25kg = kgDia / 25;
 
   return {
     diaCultivo,
@@ -122,7 +124,8 @@ function calcularRacion(laguna, fechaReferencia = new Date()) {
     biomasaLb,
     kgDia,
     lbDia,
-    sacos40kg,
+    lbHaDia,
+    sacos25kg,
   };
 }
 
