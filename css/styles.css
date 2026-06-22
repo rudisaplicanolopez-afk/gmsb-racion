@@ -113,6 +113,63 @@ body {
   gap: 1rem;
   flex-wrap: wrap;
 }
+/* ---------- Login + usuario ---------- */
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(14, 154, 167, 0.18), transparent 60%),
+    radial-gradient(900px 500px at -10% 0%, rgba(11, 83, 148, 0.18), transparent 55%),
+    var(--bg);
+  z-index: 200;
+}
+.login-card {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra-lg);
+  padding: clamp(1.5rem, 5vw, 2.4rem);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+.login-logo {
+  width: 64px; height: 64px;
+  margin: 0 auto 1rem;
+  display: grid; place-items: center;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--azul-900), var(--teal-500));
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.login-card h2 { margin: 0 0 0.3rem; color: var(--texto); font-size: 1.4rem; }
+.login-sub { margin: 0 0 1.4rem; color: var(--texto-suave); font-size: 0.9rem; }
+.login-card form { text-align: left; }
+.login-card .campo { margin-bottom: 0.9rem; }
+.login-msg { font-size: 0.85rem; margin: 0.3rem 0 0.8rem; min-height: 1.1rem; color: var(--texto-suave); }
+.login-msg.error { color: var(--rojo-500); }
+.login-msg.ok { color: var(--verde-600); font-weight: 600; }
+
+.header-usuario { display: flex; align-items: center; gap: 0.6rem; }
+.usuario-email {
+  color: rgba(255,255,255,0.9);
+  font-size: 0.82rem;
+  font-weight: 500;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .header-usuario { width: 100%; justify-content: space-between; }
+  .usuario-email { max-width: none; }
+}
+
 .app-brand { display: flex; align-items: center; gap: 0.85rem; min-width: 0; }
 .app-brand__logo {
   width: 50px; height: 50px;
@@ -340,7 +397,7 @@ body {
 .form-seccion p { margin: 0 0 0.9rem; font-size: 0.82rem; color: var(--texto-suave); }
 .campo { display: flex; flex-direction: column; gap: 0.3rem; }
 .campo label { font-size: 0.78rem; font-weight: 600; color: var(--texto-suave); }
-.campo input {
+.campo input, .campo select {
   font-family: inherit;
   font-size: 0.95rem;
   padding: 0.62rem 0.7rem;
@@ -351,7 +408,7 @@ body {
   transition: border-color var(--transicion), box-shadow var(--transicion), background-color var(--transicion);
   width: 100%;
 }
-.campo input:focus {
+.campo input:focus, .campo select:focus {
   outline: none;
   border-color: var(--azul-500);
   box-shadow: 0 0 0 3px rgba(21, 119, 194, 0.2);
@@ -389,6 +446,38 @@ body {
   max-width: calc(100% - 2rem);
 }
 .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- Panel de administrador ---------- */
+.lista-usuarios { display: flex; flex-direction: column; gap: 0.7rem; }
+.usuario-fila {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--input-bg);
+}
+.usuario-info { display: flex; flex-direction: column; gap: 0.35rem; min-width: 200px; flex: 1; }
+.usuario-info strong { font-size: 0.92rem; word-break: break-all; }
+.rol-select {
+  font-family: inherit; font-size: 0.85rem; padding: 0.35rem 0.5rem;
+  border: 1.5px solid var(--borde); border-radius: 8px;
+  background: var(--superficie); color: var(--texto); max-width: 170px;
+}
+.zonas-checks { display: flex; gap: 0.55rem; flex-wrap: wrap; }
+.zona-check {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  font-size: 0.85rem; font-weight: 600; color: var(--texto-suave);
+  padding: 0.3rem 0.5rem; border: 1px solid var(--borde); border-radius: 8px;
+  cursor: pointer; background: var(--superficie);
+}
+.zona-check input { accent-color: var(--azul-500); }
+@media (max-width: 480px) {
+  .usuario-fila { flex-direction: column; align-items: stretch; }
+  .btn-guardar-perfil { width: 100%; justify-content: center; }
+}
 
 /* ---------- Footer ---------- */
 .app-footer { text-align: center; color: var(--texto-suave); font-size: 0.8rem; padding: 0 1rem; }

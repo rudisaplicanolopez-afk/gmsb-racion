@@ -1,11 +1,14 @@
 /* Service Worker — caché del app shell para uso offline e instalación PWA. */
-const CACHE = 'gmsb-racion-v2';
+const CACHE = 'gmsb-racion-v3';
 const ASSETS = [
   './',
   './index.html',
   './css/styles.css',
+  './js/lib/supabase.js',
+  './js/supabase-config.js',
   './js/feeding-engine.js',
   './js/storage.js',
+  './js/auth.js',
   './js/app.js',
   './manifest.json',
   './icons/icon-192.png',

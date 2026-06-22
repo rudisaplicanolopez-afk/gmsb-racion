@@ -46,12 +46,38 @@
       <button id="btnExportar" class="btn btn--ghost">⬇ Exportar</button>
       <button id="btnImportar" class="btn btn--ghost">⬆ Importar</button>
       <button id="btnTema" class="btn btn--ghost" title="Cambiar entre modo claro y oscuro" aria-label="Cambiar tema">🌙 Modo oscuro</button>
+      <div id="headerUsuario" class="header-usuario" style="display:none">
+        <span id="usuarioEmail" class="usuario-email"></span>
+        <button id="btnCerrarSesion" class="btn btn--ghost">Cerrar sesión</button>
+      </div>
       <input type="file" id="inputImportar" accept="application/json" hidden />
     </div>
   </div>
 </header>
 
-<main class="contenedor">
+<!-- Pantalla de inicio de sesión -->
+<div id="pantallaLogin" class="login-overlay" style="display:none">
+  <div class="login-card">
+    <div class="login-logo">GMSB</div>
+    <h2>Ración Diaria 🦐</h2>
+    <p class="login-sub">Inicia sesión para ver tus lagunas sincronizadas en la nube.</p>
+    <form id="formLogin">
+      <div class="campo">
+        <label>Correo electrónico</label>
+        <input type="email" id="loginEmail" placeholder="tucorreo@gmsb.com" autocomplete="username" required />
+      </div>
+      <div class="campo">
+        <label>Contraseña</label>
+        <input type="password" id="loginPassword" placeholder="Mínimo 6 caracteres" autocomplete="current-password" required />
+      </div>
+      <div id="loginMsg" class="login-msg"></div>
+      <button type="submit" class="btn btn--primario" style="width:100%; justify-content:center;">Iniciar sesión</button>
+      <button type="button" id="btnRegistrarse" class="btn btn--neutro" style="width:100%; justify-content:center; margin-top:0.5rem;">Crear cuenta nueva</button>
+    </form>
+  </div>
+</div>
+
+<main class="contenedor" id="appPrincipal">
 
   <!-- 1. Selector de laguna -->
   <section class="tarjeta">
@@ -75,6 +101,16 @@
 
       <div class="form-grid">
         <div class="campo"><label>Código laguna / piscina</label><input type="text" id="nombre" placeholder="Ej. 213A" /></div>
+        <div class="campo">
+          <label>Zona</label>
+          <select id="zona">
+            <option value="1">Zona 1</option>
+            <option value="2">Zona 2</option>
+            <option value="3">Zona 3</option>
+            <option value="4">Zona 4</option>
+            <option value="5">Zona 5</option>
+          </select>
+        </div>
         <div class="campo"><label>Finca</label><input type="text" id="finca" placeholder="Ej. San Bernardo" /></div>
         <div class="campo"><label>Área (Ha)</label><input type="number" step="any" id="areaHa" /></div>
         <div class="campo"><label>Fecha de siembra</label><input type="date" id="fechaSiembra" /></div>
@@ -116,14 +152,27 @@
     </form>
   </section>
 
+  <!-- Panel de administrador (solo admin) -->
+  <section class="tarjeta" id="panelAdmin" hidden>
+    <h2 class="tarjeta__titulo"><span class="num">⚙</span> Administración de usuarios y zonas</h2>
+    <p style="font-size:0.85rem; color:var(--texto-suave); margin-top:-0.6rem;">
+      Marca las zonas que cada usuario podrá ver y editar. Para crear cuentas nuevas usa
+      Supabase → Authentication → Add user; aquí les asignas las zonas.
+    </p>
+    <div id="listaUsuarios" class="lista-usuarios"></div>
+  </section>
+
   <footer class="app-footer">
     Los valores son teóricos, calculados según la tabla de referencia. Verifica siempre contra biometría real en campo.
   </footer>
 
 </main>
 
+<script src="js/lib/supabase.js"></script>
+<script src="js/supabase-config.js"></script>
 <script src="js/feeding-engine.js"></script>
 <script src="js/storage.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

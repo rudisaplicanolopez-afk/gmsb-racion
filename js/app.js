@@ -3,11 +3,25 @@
 let lagunaSeleccionadaId = null;
 
 const FIELDS = [
-  'nombre', 'finca', 'areaHa', 'fechaSiembra', 'densidad', 'sembrados',
+  'nombre', 'zona', 'finca', 'areaHa', 'fechaSiembra', 'densidad', 'sembrados',
   'pesoTransferencia', 'diasProyectados', 'mortalidad1', 'mortalidad2', 'ajusteCurva',
   'ta30', 'tc30', 'corte1', 'ta45', 'tc45', 'corte2', 'ta56', 'tc56', 'corte3',
   'ta75', 'tc75', 'corte4', 'taFinal', 'tcFinal',
 ];
+
+function zonasPermitidas() {
+  if (window.Perfil && window.Perfil.rol === 'admin') return [1, 2, 3, 4, 5];
+  if (window.Perfil && Array.isArray(window.Perfil.zonas)) return window.Perfil.zonas.slice().sort();
+  return [];
+}
+
+function poblarSelectorZona() {
+  const sel = document.getElementById('zona');
+  if (!sel) return;
+  const zonas = zonasPermitidas();
+  const lista = zonas.length ? zonas : [1, 2, 3, 4, 5];
+  sel.innerHTML = lista.map((z) => `<option value="${z}">Zona ${z}</option>`).join('');
+}
 
 function renderListaLagunas() {
   const lagunas = Storage.getLagunas();
@@ -44,6 +58,7 @@ function renderRacion() {
 
   document.getElementById('infoLaguna').innerHTML = `
     <span class="dato">🏷️ <strong>${laguna.nombre}</strong></span>
+    <span class="dato">📍 Zona ${laguna.zona || '-'}</span>
     <span class="dato">🏝️ ${laguna.finca || 'Sin finca'}</span>
     <span class="dato">📐 ${laguna.areaHa || '-'} Ha</span>
     <span class="dato">🦐 ${Number(laguna.sembrados || 0).toLocaleString()} PL</span>
@@ -104,7 +119,12 @@ function cargarFormulario(id) {
   document.getElementById('tituloFormulario').textContent = laguna ? `3. Editar laguna: ${laguna.nombre}` : '3. Nueva laguna';
   document.getElementById('lagunaId').value = laguna ? laguna.id : '';
   FIELDS.forEach((f) => {
-    document.getElementById(f).value = laguna ? (laguna[f] ?? '') : document.getElementById(f).defaultValue;
+    const elc = document.getElementById(f);
+    if (elc.tagName === 'SELECT') {
+      elc.value = laguna && laguna[f] != null ? String(laguna[f]) : (zonasPermitidas()[0] || 1);
+    } else {
+      elc.value = laguna ? (laguna[f] ?? '') : elc.defaultValue;
+    }
   });
   document.getElementById('btnCancelarEdicion').style.display = laguna ? 'inline-block' : 'none';
   document.getElementById('btnEliminar').style.display = laguna ? 'inline-block' : 'none';
@@ -282,5 +302,102 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   });
 }
 
-renderListaLagunas();
-renderRacion();
+/* ---------- Arranque con autenticación + sincronización en la nube ---------- */
+const esAdmin = () => window.Perfil && window.Perfil.rol === 'admin';
+
+async function alIniciarSesion() {
+  poblarSelectorZona();
+  renderListaLagunas();
+  renderRacion();
+
+  const res = await Storage.syncFromCloud();
+  if (res && res.ok && res.count === 0 && esAdmin()) {
+    // Primera vez: el admin sube lo que tuviera guardado localmente (si tiene zona).
+    await Storage.subirCacheLocalSiHace();
+    await Storage.syncFromCloud();
+  }
+
+  poblarSelectorZona();
+  renderListaLagunas();
+  if (lagunaSeleccionadaId && !Storage.getLaguna(lagunaSeleccionadaId)) {
+    lagunaSeleccionadaId = null;
+  }
+  renderRacion();
+  actualizarEstadoAcceso();
+
+  if (esAdmin()) renderPanelAdmin();
+  else document.getElementById('panelAdmin').hidden = true;
+}
+
+function alCerrarSesion() {
+  lagunaSeleccionadaId = null;
+  document.getElementById('panelAdmin').hidden = true;
+  renderListaLagunas();
+  renderRacion();
+}
+
+// Aviso cuando un usuario (no admin) todavía no tiene zonas asignadas.
+function actualizarEstadoAcceso() {
+  let banner = document.getElementById('avisoSinZonas');
+  const sinZonas = !esAdmin() && zonasPermitidas().length === 0;
+  if (sinZonas) {
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'avisoSinZonas';
+      banner.className = 'aviso';
+      banner.style.margin = '0 0 1rem';
+      document.getElementById('appPrincipal').prepend(banner);
+    }
+    banner.innerHTML = '⏳ Tu cuenta aún no tiene zonas asignadas. Pídele al administrador que te asigne tu zona para ver las lagunas.';
+  } else if (banner) {
+    banner.remove();
+  }
+}
+
+/* ---------- Panel de administrador ---------- */
+async function renderPanelAdmin() {
+  const panel = document.getElementById('panelAdmin');
+  panel.hidden = false;
+  const cont = document.getElementById('listaUsuarios');
+  cont.innerHTML = '<p class="vacio">Cargando usuarios…</p>';
+
+  const perfiles = await Storage.listarPerfiles();
+  if (!perfiles.length) {
+    cont.innerHTML = '<p class="vacio">No hay usuarios todavía.</p>';
+    return;
+  }
+
+  cont.innerHTML = perfiles.map((p) => {
+    const zonas = Array.isArray(p.zonas) ? p.zonas : [];
+    const checks = [1, 2, 3, 4, 5].map((z) =>
+      `<label class="zona-check"><input type="checkbox" data-uid="${p.id}" data-zona="${z}" ${zonas.includes(z) ? 'checked' : ''}/> Z${z}</label>`
+    ).join('');
+    return `
+      <div class="usuario-fila" data-uid="${p.id}">
+        <div class="usuario-info">
+          <strong>${p.email || '(sin correo)'}</strong>
+          <select data-rol="${p.id}" class="rol-select">
+            <option value="usuario" ${p.rol === 'usuario' ? 'selected' : ''}>Usuario</option>
+            <option value="admin" ${p.rol === 'admin' ? 'selected' : ''}>Administrador</option>
+          </select>
+        </div>
+        <div class="zonas-checks">${checks}</div>
+        <button class="btn btn--primario btn-guardar-perfil" data-uid="${p.id}">Guardar</button>
+      </div>`;
+  }).join('');
+
+  cont.querySelectorAll('.btn-guardar-perfil').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const uid = btn.dataset.uid;
+      const rol = cont.querySelector(`select[data-rol="${uid}"]`).value;
+      const zonas = Array.from(cont.querySelectorAll(`input[data-uid="${uid}"]:checked`)).map((c) => Number(c.dataset.zona));
+      btn.textContent = 'Guardando…';
+      const r = await Storage.guardarPerfil(uid, rol, zonas);
+      btn.textContent = 'Guardar';
+      if (r.ok) mostrarConfirmacion('Perfil actualizado.');
+      else alert('No se pudo guardar: ' + (r.error || ''));
+    });
+  });
+}
+
+Auth.init(alIniciarSesion, alCerrarSesion);
