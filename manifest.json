@@ -1,7 +1,7 @@
 {
-  "name": "GMSB · Ración Diaria Camarón",
-  "short_name": "GMSB Ración",
-  "description": "Cálculo de la ración diaria teórica para el cultivo y engorde de camarón — GMSB.",
+  "name": "DIETAS GMSB",
+  "short_name": "DIETAS GMSB",
+  "description": "Ración diaria de alimentación para el cultivo y engorde de camarón — GMSB.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
