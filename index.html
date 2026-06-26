@@ -120,27 +120,22 @@
         <div class="campo"><label>Días proyectados de cultivo</label><input type="number" id="diasProyectados" /></div>
         <div class="campo"><label>Mortalidad 1 (%)</label><input type="number" step="any" id="mortalidad1" value="10" /></div>
         <div class="campo"><label>Mortalidad 2 (%)</label><input type="number" step="any" id="mortalidad2" value="3" /></div>
-        <div class="campo"><label>Ajuste de curva (6 ó 7)</label><input type="number" step="any" id="ajusteCurva" value="7" /></div>
       </div>
 
       <div class="form-seccion">
-        <h3>Tasas de crecimiento y alimentación por etapa</h3>
-        <p>Copia el % tal como aparece en tu Excel. El "día de corte" es donde tu hoja cambia de una etapa a la siguiente (ajústalo si no es 30 / 45 / 60 / 75).</p>
+        <h3>Tasas de crecimiento y alimentación</h3>
+        <p>Copia el % tal como aparece en tu Excel (TA 30 días y TC 30 días). El ajuste de la curva se calcula solo según el peso de transferencia.</p>
         <div class="form-grid">
-          <div class="campo"><label>TA 30 días (%)</label><input type="number" step="any" id="ta30" value="230" /></div>
-          <div class="campo"><label>TC 30 días (%)</label><input type="number" step="any" id="tc30" value="275" /></div>
-          <div class="campo"><label>Día de corte → etapa 2</label><input type="number" step="any" id="corte1" value="30" /></div>
-          <div class="campo"><label>TA 45 días (%)</label><input type="number" step="any" id="ta45" value="200" /></div>
-          <div class="campo"><label>TC 45 días (%)</label><input type="number" step="any" id="tc45" value="280" /></div>
-          <div class="campo"><label>Día de corte → etapa 3</label><input type="number" step="any" id="corte2" value="45" /></div>
-          <div class="campo"><label>TA 56 días (%)</label><input type="number" step="any" id="ta56" value="200" /></div>
-          <div class="campo"><label>TC 56 días (%)</label><input type="number" step="any" id="tc56" value="280" /></div>
-          <div class="campo"><label>Día de corte → etapa 4</label><input type="number" step="any" id="corte3" value="60" /></div>
-          <div class="campo"><label>TA 75 días (%)</label><input type="number" step="any" id="ta75" value="150" /></div>
-          <div class="campo"><label>TC 75 días (%)</label><input type="number" step="any" id="tc75" value="250" /></div>
-          <div class="campo"><label>Día de corte → etapa final</label><input type="number" step="any" id="corte4" value="75" /></div>
-          <div class="campo"><label>TA Final (%)</label><input type="number" step="any" id="taFinal" value="110" /></div>
-          <div class="campo"><label>TC Final (%)</label><input type="number" step="any" id="tcFinal" value="140" /></div>
+          <div class="campo"><label>TA — Tasa de alimentación (%)</label><input type="number" step="any" id="ta30" value="200" /></div>
+          <div class="campo"><label>TC — Tasa de crecimiento (%)</label><input type="number" step="any" id="tc30" value="230" /></div>
+        </div>
+      </div>
+
+      <div class="form-seccion">
+        <h3>Peso real (biometría) — opcional</h3>
+        <p>Si registras el peso real medido en campo, la app calcula también la <strong>ración real</strong>. Este valor queda fijo hasta que lo edites de nuevo.</p>
+        <div class="form-grid">
+          <div class="campo"><label>Peso real actual (g)</label><input type="number" step="any" id="pesoReal" placeholder="Ej. 11.5" /></div>
         </div>
       </div>
 

@@ -4,47 +4,39 @@
 const KG_PER_LB = 2.2046;
 const G_PER_LB = 454;
 
-// Bandas de etapa: el día de corte de cada etapa varía por laguna en el Excel
-// (no siempre es 30/45/60/75 exacto), por eso son configurables con valor
-// por defecto 30/45/60/75 si la laguna no especifica otra cosa.
-function getEtapas(laguna) {
-  const corte1 = Number(laguna.corte1) || 30;
-  const corte2 = Number(laguna.corte2) || 45;
-  const corte3 = Number(laguna.corte3) || 60;
-  const corte4 = Number(laguna.corte4) || 75;
-  return [
-    { diaMax: corte1, ta: 'ta30', tc: 'tc30' },
-    { diaMax: corte2, ta: 'ta45', tc: 'tc45' },
-    { diaMax: corte3, ta: 'ta56', tc: 'tc56' },
-    { diaMax: corte4, ta: 'ta75', tc: 'tc75' },
-    { diaMax: Infinity, ta: 'taFinal', tc: 'tcFinal' },
-  ];
+// Constantes de la curva Nicovita (idénticas al Excel de referencia).
+const K_PESO = 0.0231;
+const EXP_PESO = 1.3758;
+const K_TA = 4.2847;
+const EXP_TA = -0.2869;
+
+// TC30 y TA30 se ingresan como porcentaje (ej. 230% se escribe "230").
+function tc30Frac(laguna) { return (Number(laguna.tc30) || 0) / 100; }
+function ta30Frac(laguna) { return (Number(laguna.ta30) || 0) / 100; }
+
+// "Ajuste" de la curva (BM1 del Excel). Antes se ponía a mano; aquí se calcula
+// automáticamente de modo que el peso del día 1 coincida con el peso de
+// transferencia, usando: techo( (PesoTransf / (K·TC30))^(1/EXP) ).
+// Verificado contra 7 lagunas del Excel (201A,202A,204A,208A,213A,212A,V0410A).
+function ajusteCurva(laguna) {
+  const tc = tc30Frac(laguna);
+  const transf = Number(laguna.pesoTransferencia) || 0;
+  if (tc <= 0 || transf <= 0) return 8; // valor típico de respaldo
+  return Math.ceil(Math.pow(transf / (K_PESO * tc), 1 / EXP_PESO));
 }
 
-function getEtapa(diaCultivo, laguna) {
-  const etapas = getEtapas(laguna);
-  return etapas.find((e) => diaCultivo <= e.diaMax) || etapas[etapas.length - 1];
-}
-
-// Los campos TA/TC y Mortalidad se ingresan como porcentaje, igual que se
-// ven en el Excel (ej. 230% se escribe "230"), por eso se dividen entre 100.
+// Peso teórico del día (g): 0.0231 · (ajuste + día − 1)^1.3758 · TC30
 function pesoTeoricoG(diaCultivo, laguna) {
-  const etapa = getEtapa(diaCultivo, laguna);
-  const tc = (Number(laguna[etapa.tc]) || 0) / 100;
-  // La curva de crecimiento de cada laguna arranca con un pequeño corrimiento
-  // (constante interna del Excel) que varía de laguna a laguna; "ajusteCurva"
-  // lo deja configurable en vez de fijarlo en 7 para todas.
-  const ajuste = laguna.ajusteCurva !== undefined && laguna.ajusteCurva !== ''
-    ? Number(laguna.ajusteCurva)
-    : 7;
-  return 0.0231 * Math.pow(diaCultivo + ajuste, 1.3758) * tc;
+  const tc = tc30Frac(laguna);
+  const bm1 = ajusteCurva(laguna);
+  return K_PESO * Math.pow(bm1 + diaCultivo - 1, EXP_PESO) * tc;
 }
 
-function porcentajeTA(pesoG, diaCultivo, laguna) {
-  const etapa = getEtapa(diaCultivo, laguna);
-  const ta = (Number(laguna[etapa.ta]) || 0) / 100;
+// Fracción de alimentación (TA): (4.2847 · peso^−0.2869 · TA30) / 100
+function porcentajeTA(pesoG, laguna) {
+  const ta = ta30Frac(laguna);
   if (pesoG <= 0) return 0;
-  return (4.2847 * Math.pow(pesoG, -0.2869) * ta) / 100;
+  return (K_TA * Math.pow(pesoG, EXP_TA) * ta) / 100;
 }
 
 function supervivenciaTeorica(diaCultivo, laguna) {
@@ -105,17 +97,17 @@ function calcularRacion(laguna, fechaReferencia = new Date()) {
 
   const pesoG = pesoTeoricoG(diaCultivo, laguna);
   const supervivencia = supervivenciaTeorica(diaCultivo, laguna);
-  const ta = porcentajeTA(pesoG, diaCultivo, laguna);
+  const ta = porcentajeTA(pesoG, laguna);
   const sembrados = Number(laguna.sembrados) || 0;
+  const areaHa = Number(laguna.areaHa) || 0;
 
   const biomasaLb = (sembrados * supervivencia * pesoG) / G_PER_LB;
   const kgDia = (biomasaLb * ta) / KG_PER_LB;
   const lbDia = Math.floor(kgDia * KG_PER_LB);
-  const areaHa = Number(laguna.areaHa) || 0;
   const lbHaDia = areaHa > 0 ? (lbDia / areaHa) : 0;
   const sacos25kg = kgDia / 25;
 
-  return {
+  const r = {
     diaCultivo,
     fueraDeRango: false,
     pesoG,
@@ -127,6 +119,26 @@ function calcularRacion(laguna, fechaReferencia = new Date()) {
     lbHaDia,
     sacos25kg,
   };
+
+  // Ración REAL: si el usuario registró un peso real, se calcula la ración con
+  // ese peso (manual, persiste hasta que lo edite de nuevo).
+  const pesoReal = Number(laguna.pesoReal) || 0;
+  if (pesoReal > 0) {
+    const taReal = porcentajeTA(pesoReal, laguna);
+    const biomasaRealLb = (sembrados * supervivencia * pesoReal) / G_PER_LB;
+    const kgReal = (biomasaRealLb * taReal) / KG_PER_LB;
+    const lbReal = Math.floor(kgReal * KG_PER_LB);
+    r.real = {
+      pesoReal,
+      taPct: taReal * 100,
+      kgReal,
+      lbReal,
+      lbHaReal: areaHa > 0 ? (lbReal / areaHa) : 0,
+      sacos25kg: kgReal / 25,
+    };
+  }
+
+  return r;
 }
 
 window.FeedingEngine = {

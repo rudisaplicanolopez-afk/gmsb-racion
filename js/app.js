@@ -4,9 +4,8 @@ let lagunaSeleccionadaId = null;
 
 const FIELDS = [
   'nombre', 'zona', 'finca', 'areaHa', 'fechaSiembra', 'densidad', 'sembrados',
-  'pesoTransferencia', 'diasProyectados', 'mortalidad1', 'mortalidad2', 'ajusteCurva',
-  'ta30', 'tc30', 'corte1', 'ta45', 'tc45', 'corte2', 'ta56', 'tc56', 'corte3',
-  'ta75', 'tc75', 'corte4', 'taFinal', 'tcFinal',
+  'pesoTransferencia', 'diasProyectados', 'mortalidad1', 'mortalidad2',
+  'ta30', 'tc30', 'pesoReal',
 ];
 
 function zonasPermitidas() {
@@ -108,6 +107,39 @@ function renderRacion() {
       </div>
       <div class="ration-card">
         <div class="valor">${r.sacos25kg.toFixed(2)}</div>
+        <div class="etiqueta">Sacos de 25 kg</div>
+      </div>
+    </div>
+    ${r.real ? bloqueRacionReal(r.real) : ''}
+  `;
+}
+
+function bloqueRacionReal(rr) {
+  return `
+    <h3 style="margin:1.6rem 0 0.8rem; font-size:1rem; color:var(--texto);">📏 Ración REAL (según peso medido)</h3>
+    <div class="ration-grid">
+      <div class="ration-card destacado destacado-real">
+        <div class="valor">${rr.kgReal.toFixed(1)} kg</div>
+        <div class="etiqueta">Ración real HOY</div>
+      </div>
+      <div class="ration-card destacado destacado-real">
+        <div class="valor">${rr.lbReal} lb</div>
+        <div class="etiqueta">Ración real HOY (lb)</div>
+      </div>
+      <div class="ration-card">
+        <div class="valor">${rr.pesoReal.toFixed(2)} g</div>
+        <div class="etiqueta">Peso real</div>
+      </div>
+      <div class="ration-card">
+        <div class="valor">${rr.lbHaReal.toFixed(1)}</div>
+        <div class="etiqueta">Lbs / Ha del día</div>
+      </div>
+      <div class="ration-card">
+        <div class="valor">${rr.taPct.toFixed(2)}%</div>
+        <div class="etiqueta">% Tasa de alimentación</div>
+      </div>
+      <div class="ration-card">
+        <div class="valor">${rr.sacos25kg.toFixed(2)}</div>
         <div class="etiqueta">Sacos de 25 kg</div>
       </div>
     </div>

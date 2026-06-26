@@ -375,6 +375,10 @@ body {
 }
 .ration-card.destacado .valor { color: #fff; font-size: clamp(2rem, 7vw, 2.6rem); }
 .ration-card.destacado .etiqueta { color: rgba(255, 255, 255, 0.9); font-weight: 600; }
+.ration-card.destacado-real {
+  background: linear-gradient(135deg, var(--teal-500), #0b7d88);
+  box-shadow: 0 8px 22px rgba(14, 154, 167, 0.32);
+}
 
 .aviso {
   background: var(--aviso-bg);
