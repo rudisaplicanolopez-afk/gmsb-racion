@@ -121,15 +121,20 @@ function calcularRacion(laguna, fechaReferencia = new Date()) {
   };
 
   // Ración REAL: si el usuario registró un peso real, se calcula la ración con
-  // ese peso (manual, persiste hasta que lo edite de nuevo).
+  // ese peso y con la sobrevivencia real (si la registró). Ambos son manuales y
+  // persisten hasta que el usuario los edite de nuevo.
   const pesoReal = Number(laguna.pesoReal) || 0;
   if (pesoReal > 0) {
+    const survRealPct = Number(laguna.supervivenciaReal) || 0;
+    const survReal = survRealPct > 0 ? survRealPct / 100 : supervivencia;
     const taReal = porcentajeTA(pesoReal, laguna);
-    const biomasaRealLb = (sembrados * supervivencia * pesoReal) / G_PER_LB;
+    const biomasaRealLb = (sembrados * survReal * pesoReal) / G_PER_LB;
     const kgReal = (biomasaRealLb * taReal) / KG_PER_LB;
     const lbReal = Math.floor(kgReal * KG_PER_LB);
     r.real = {
       pesoReal,
+      supervivenciaPct: survReal * 100,
+      supervivenciaEsReal: survRealPct > 0,
       taPct: taReal * 100,
       kgReal,
       lbReal,

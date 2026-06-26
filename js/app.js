@@ -5,7 +5,7 @@ let lagunaSeleccionadaId = null;
 const FIELDS = [
   'nombre', 'zona', 'finca', 'areaHa', 'fechaSiembra', 'densidad', 'sembrados',
   'pesoTransferencia', 'diasProyectados', 'mortalidad1', 'mortalidad2',
-  'ta30', 'tc30', 'pesoReal',
+  'ta30', 'tc30', 'pesoReal', 'supervivenciaReal',
 ];
 
 function zonasPermitidas() {
@@ -129,6 +129,10 @@ function bloqueRacionReal(rr) {
       <div class="ration-card">
         <div class="valor">${rr.pesoReal.toFixed(2)} g</div>
         <div class="etiqueta">Peso real</div>
+      </div>
+      <div class="ration-card">
+        <div class="valor">${rr.supervivenciaPct.toFixed(1)}%</div>
+        <div class="etiqueta">Sobrevivencia ${rr.supervivenciaEsReal ? 'real' : '(teórica)'}</div>
       </div>
       <div class="ration-card">
         <div class="valor">${rr.lbHaReal.toFixed(1)}</div>
