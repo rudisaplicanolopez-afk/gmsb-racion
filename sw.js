@@ -1,5 +1,5 @@
 /* Service Worker — caché del app shell para uso offline e instalación PWA. */
-const CACHE = 'gmsb-racion-v6';
+const CACHE = 'gmsb-racion-v7';
 const ASSETS = [
   './',
   './index.html',

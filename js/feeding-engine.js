@@ -140,6 +140,7 @@ function calcularRacion(laguna, fechaReferencia = new Date()) {
       lbReal,
       lbHaReal: areaHa > 0 ? (lbReal / areaHa) : 0,
       sacos25kg: kgReal / 25,
+      biomasaLb: biomasaRealLb,
     };
   }
 

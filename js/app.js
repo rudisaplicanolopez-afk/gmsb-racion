@@ -135,6 +135,10 @@ function bloqueRacionReal(rr) {
         <div class="etiqueta">Sobrevivencia ${rr.supervivenciaEsReal ? 'real' : '(teórica)'}</div>
       </div>
       <div class="ration-card">
+        <div class="valor">${Math.round(rr.biomasaLb).toLocaleString()}</div>
+        <div class="etiqueta">Biomasa total (lb)</div>
+      </div>
+      <div class="ration-card">
         <div class="valor">${rr.lbHaReal.toFixed(1)}</div>
         <div class="etiqueta">Lbs / Ha del día</div>
       </div>
