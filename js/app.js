@@ -22,21 +22,50 @@ function poblarSelectorZona() {
   sel.innerHTML = lista.map((z) => `<option value="${z}">Zona ${z}</option>`).join('');
 }
 
+let zonaFiltro = 'todas';
+
 function renderListaLagunas() {
-  const lagunas = Storage.getLagunas();
+  let lagunas = Storage.getLagunas();
   const cont = document.getElementById('listaLagunas');
   const vacio = document.getElementById('sinLagunas');
   cont.innerHTML = '';
+
+  // Filtrar por zona seleccionada
+  if (zonaFiltro !== 'todas') {
+    lagunas = lagunas.filter((l) => String(l.zona) === String(zonaFiltro));
+  }
+  // Ordenar de menor a mayor por código (orden natural: L0201 < L0202 < ...)
+  lagunas = lagunas.slice().sort((a, b) =>
+    String(a.nombre || '').localeCompare(String(b.nombre || ''), undefined, { numeric: true, sensitivity: 'base' })
+  );
+
   vacio.style.display = lagunas.length ? 'none' : 'block';
+  vacio.textContent = (zonaFiltro !== 'todas' && Storage.getLagunas().length)
+    ? 'No hay lagunas en esta zona.'
+    : 'Aún no has registrado ninguna laguna. Crea la primera en el formulario de abajo.';
 
   lagunas.forEach((l) => {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'chip-laguna' + (l.id === lagunaSeleccionadaId ? ' activo' : '');
     chip.textContent = l.nombre;
+    chip.title = 'Zona ' + (l.zona || '-');
     chip.onclick = () => seleccionarLaguna(l.id);
     cont.appendChild(chip);
   });
+}
+
+// Llena el filtro de zona con "Todas" + las zonas permitidas del usuario.
+function poblarFiltroZona() {
+  const sel = document.getElementById('filtroZona');
+  if (!sel) return;
+  const zonas = zonasPermitidas();
+  const cont = document.getElementById('filtroZonaCont');
+  // Solo tiene sentido mostrar el filtro si el usuario tiene más de una zona.
+  if (cont) cont.style.display = zonas.length > 1 ? 'flex' : 'none';
+  sel.innerHTML = '<option value="todas">Todas las zonas</option>' +
+    zonas.map((z) => `<option value="${z}">Zona ${z}</option>`).join('');
+  sel.value = zonaFiltro;
 }
 
 function seleccionarLaguna(id) {
@@ -258,6 +287,11 @@ document.getElementById('btnImportar').addEventListener('click', () => {
   document.getElementById('inputImportar').click();
 });
 
+document.getElementById('filtroZona').addEventListener('change', (e) => {
+  zonaFiltro = e.target.value;
+  renderListaLagunas();
+});
+
 document.getElementById('inputImportar').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -347,6 +381,7 @@ const esAdmin = () => window.Perfil && window.Perfil.rol === 'admin';
 
 async function alIniciarSesion() {
   poblarSelectorZona();
+  poblarFiltroZona();
   renderListaLagunas();
   renderRacion();
 
@@ -358,6 +393,7 @@ async function alIniciarSesion() {
   }
 
   poblarSelectorZona();
+  poblarFiltroZona();
   renderListaLagunas();
   if (lagunaSeleccionadaId && !Storage.getLaguna(lagunaSeleccionadaId)) {
     lagunaSeleccionadaId = null;
