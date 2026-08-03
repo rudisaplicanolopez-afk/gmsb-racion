@@ -5,7 +5,7 @@ let lagunaSeleccionadaId = null;
 const FIELDS = [
   'nombre', 'zona', 'finca', 'areaHa', 'fechaSiembra', 'densidad', 'sembrados',
   'pesoTransferencia', 'diasProyectados', 'mortalidad1', 'mortalidad2',
-  'ta30', 'tc30', 'pesoReal', 'supervivenciaReal',
+  'ta30', 'tc30', 'pesoReal', 'supervivenciaReal', 'fca',
 ];
 
 function zonasPermitidas() {
@@ -167,6 +167,10 @@ function bloqueRacionReal(rr) {
         <div class="valor">${Math.round(rr.biomasaLb).toLocaleString()}</div>
         <div class="etiqueta">Biomasa total (lb)</div>
       </div>
+      ${rr.fca ? `<div class="ration-card">
+        <div class="valor">${rr.fca.toFixed(2)}</div>
+        <div class="etiqueta">FCA real</div>
+      </div>` : ''}
       <div class="ration-card">
         <div class="valor">${rr.lbHaReal.toFixed(1)}</div>
         <div class="etiqueta">Lbs / Ha del día</div>
