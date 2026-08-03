@@ -399,6 +399,38 @@ body {
   box-shadow: 0 8px 22px rgba(14, 154, 167, 0.32);
 }
 
+/* ---------- Barra de consumo (triángulo de arrastre) ---------- */
+.consumo-selector { margin: 0 0 1rem; }
+.consumo-label { font-size: 0.85rem; font-weight: 600; color: var(--texto-suave); margin-bottom: 0.5rem; }
+.consumo-pills {
+  display: flex;
+  gap: 0.4rem;
+  background: var(--card-info-bg);
+  border: 1px solid var(--card-info-border);
+  border-radius: 999px;
+  padding: 0.3rem;
+}
+.consumo-pill {
+  flex: 1;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--texto);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.55rem 0.4rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all var(--transicion);
+}
+.consumo-pill:hover { background: rgba(14, 154, 167, 0.15); }
+.consumo-pill.activo {
+  background: linear-gradient(135deg, var(--teal-500), #0b7d88);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(14, 154, 167, 0.4);
+}
+
 .aviso {
   background: var(--aviso-bg);
   border: 1px solid var(--aviso-border);

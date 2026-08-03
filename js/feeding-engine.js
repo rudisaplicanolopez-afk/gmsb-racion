@@ -129,7 +129,12 @@ function calcularRacion(laguna, fechaReferencia = new Date()) {
     const survReal = survRealPct > 0 ? survRealPct / 100 : supervivencia;
     const taReal = porcentajeTA(pesoReal, laguna);
     const biomasaRealLb = (sembrados * survReal * pesoReal) / G_PER_LB;
-    const kgReal = (biomasaRealLb * taReal) / KG_PER_LB;
+    // Factor de consumo (triángulo de arrastre): 100/75/50/25/0 %. Ajusta la
+    // ración real a aplicar. Por defecto 100%.
+    const consumoPct = (laguna.consumoPct !== undefined && laguna.consumoPct !== '' && laguna.consumoPct !== null)
+      ? Number(laguna.consumoPct) : 100;
+    const factor = consumoPct / 100;
+    const kgReal = ((biomasaRealLb * taReal) / KG_PER_LB) * factor;
     const lbReal = Math.floor(kgReal * KG_PER_LB);
     r.real = {
       pesoReal,
@@ -142,6 +147,7 @@ function calcularRacion(laguna, fechaReferencia = new Date()) {
       sacos25kg: kgReal / 25,
       biomasaLb: biomasaRealLb,
       fca: Number(laguna.fca) || null, // solo informativo, no afecta la ración
+      consumoPct,
     };
   }
 

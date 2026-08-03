@@ -75,6 +75,16 @@ function seleccionarLaguna(id) {
   cargarFormulario(id);
 }
 
+// Ajuste de consumo (triángulo de arrastre): guarda el % y recalcula la ración real.
+function cambiarConsumo(pct) {
+  const laguna = Storage.getLaguna(lagunaSeleccionadaId);
+  if (!laguna) return;
+  laguna.consumoPct = pct;
+  Storage.upsertLaguna(laguna);
+  renderRacion();
+}
+window.cambiarConsumo = cambiarConsumo;
+
 function renderRacion() {
   const panel = document.getElementById('panelRacion');
   const laguna = Storage.getLaguna(lagunaSeleccionadaId);
@@ -144,16 +154,25 @@ function renderRacion() {
 }
 
 function bloqueRacionReal(rr) {
+  const pct = rr.consumoPct;
+  const pills = [100, 75, 50, 25, 0].map((p) =>
+    `<button type="button" class="consumo-pill${pct === p ? ' activo' : ''}" onclick="cambiarConsumo(${p})">${p}%</button>`
+  ).join('');
+  const etiquetaConsumo = pct === 100 ? '' : ` · al ${pct}%`;
   return `
     <h3 style="margin:1.6rem 0 0.8rem; font-size:1rem; color:var(--texto);">📏 Ración REAL (según peso medido)</h3>
+    <div class="consumo-selector">
+      <div class="consumo-label">🔺 Consumo (triángulo de arrastre):</div>
+      <div class="consumo-pills">${pills}</div>
+    </div>
     <div class="ration-grid">
       <div class="ration-card destacado destacado-real">
         <div class="valor">${rr.kgReal.toFixed(1)} kg</div>
-        <div class="etiqueta">Ración real HOY</div>
+        <div class="etiqueta">Ración a dar HOY${etiquetaConsumo}</div>
       </div>
       <div class="ration-card destacado destacado-real">
         <div class="valor">${rr.lbReal} lb</div>
-        <div class="etiqueta">Ración real HOY (lb)</div>
+        <div class="etiqueta">Ración a dar HOY (lb)${etiquetaConsumo}</div>
       </div>
       <div class="ration-card">
         <div class="valor">${rr.pesoReal.toFixed(2)} g</div>
@@ -229,7 +248,9 @@ document.getElementById('formLaguna').addEventListener('submit', (e) => {
   }
 
   const id = document.getElementById('lagunaId').value || `laguna_${Date.now()}`;
-  const laguna = { id };
+  // Partir de la laguna existente para no perder campos que no están en el
+  // formulario (ej. consumoPct, que se ajusta con la barra de consumo).
+  const laguna = Object.assign({}, Storage.getLaguna(id) || {}, { id });
   FIELDS.forEach((f) => {
     laguna[f] = document.getElementById(f).value;
   });
