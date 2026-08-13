@@ -84,8 +84,11 @@ function startOfDay(d) {
   return startOfDayDate(d).getTime();
 }
 
-function calcularRacion(laguna, fechaReferencia = new Date()) {
-  const diaCultivo = diaCultivoDesde(laguna.fechaSiembra, fechaReferencia);
+function calcularRacion(laguna, fechaReferencia = new Date(), diaForzado = null) {
+  // diaForzado permite ver un día específico (navegación anterior/futuro).
+  const diaCultivo = (diaForzado != null)
+    ? Number(diaForzado)
+    : diaCultivoDesde(laguna.fechaSiembra, fechaReferencia);
   const diasProyectados = Number(laguna.diasProyectados) || 0;
 
   if (diaCultivo < 1) {

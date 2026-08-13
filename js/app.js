@@ -23,6 +23,8 @@ function poblarSelectorZona() {
 }
 
 let zonaFiltro = 'todas';
+let diaVista = null;      // null = hoy; número = día seleccionado
+let diaMostrado = null;   // día que se está mostrando actualmente
 
 function renderListaLagunas() {
   let lagunas = Storage.getLagunas();
@@ -70,9 +72,102 @@ function poblarFiltroZona() {
 
 function seleccionarLaguna(id) {
   lagunaSeleccionadaId = id;
+  diaVista = null; // al cambiar de laguna, volver a "hoy"
   renderListaLagunas();
   renderRacion();
   cargarFormulario(id);
+}
+
+// Fecha calendario correspondiente a un día de cultivo.
+function fechaDeDia(laguna, dia) {
+  if (!laguna.fechaSiembra) return '-';
+  const [y, m, d] = String(laguna.fechaSiembra).split('-').map(Number);
+  const base = new Date(y, m - 1, d);
+  base.setDate(base.getDate() + (dia - 1));
+  return base.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+// Navegación de días (anterior/futuro), acotada al proyecto.
+function navegarDia(delta) {
+  const laguna = Storage.getLaguna(lagunaSeleccionadaId);
+  if (!laguna) return;
+  const diasProyec = Number(laguna.diasProyectados) || 1;
+  const actual = (diaVista != null) ? diaVista : FeedingEngine.calcularRacion(laguna).diaCultivo;
+  diaVista = Math.max(1, Math.min(diasProyec, actual + delta));
+  renderRacion();
+}
+function irHoy() { diaVista = null; renderRacion(); }
+window.navegarDia = navegarDia;
+window.irHoy = irHoy;
+
+// Guardar el alimento programado (kg) del día mostrado.
+function programarDia() {
+  const laguna = Storage.getLaguna(lagunaSeleccionadaId);
+  if (!laguna) return;
+  const val = parseFloat(document.getElementById('inputProgramado').value);
+  if (isNaN(val) || val < 0) { alert('Ingresa un valor válido de kg.'); return; }
+  if (!laguna.programado) laguna.programado = {};
+  laguna.programado[diaMostrado] = val;
+  Storage.upsertLaguna(laguna);
+  renderRacion();
+  mostrarConfirmacion(`Día ${diaMostrado} programado: ${val} kg`);
+}
+window.programarDia = programarDia;
+
+// Exportar toda la programación de alimento (todas las lagunas) a CSV.
+function exportarProgramacion() {
+  const lagunas = Storage.getLagunas();
+  const filas = [['Laguna', 'Zona', 'Dia', 'Fecha', 'Kg programado']];
+  lagunas.forEach((l) => {
+    const prog = l.programado || {};
+    Object.keys(prog).map(Number).sort((a, b) => a - b).forEach((d) => {
+      filas.push([l.nombre, l.zona || '', d, fechaDeDia(l, d), prog[d]]);
+    });
+  });
+  if (filas.length === 1) { alert('Aún no hay días programados para exportar.'); return; }
+  const csv = filas.map((f) => f.join(';')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `programacion_alimento_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+window.exportarProgramacion = exportarProgramacion;
+
+// HTML del navegador de días.
+function navegadorDiaHTML(laguna, dia, diasProyec, esHoy) {
+  return `
+    <div class="dia-nav">
+      <button type="button" class="dia-btn" onclick="navegarDia(-1)" ${dia <= 1 ? 'disabled' : ''}>◀</button>
+      <div class="dia-nav__info">
+        <div class="dia-nav__dia">Día ${dia} / ${diasProyec}${esHoy ? ' · HOY' : ''}</div>
+        <div class="dia-nav__fecha">${fechaDeDia(laguna, dia)}</div>
+      </div>
+      <button type="button" class="dia-btn" onclick="navegarDia(1)" ${dia >= diasProyec ? 'disabled' : ''}>▶</button>
+      ${esHoy ? '' : '<button type="button" class="btn btn--neutro dia-hoy" onclick="irHoy()">Ir a HOY</button>'}
+    </div>`;
+}
+
+// HTML de la fila de alimento programado + exportación.
+function programacionHTML(laguna, r) {
+  const prog = (laguna.programado && laguna.programado[diaMostrado] != null) ? laguna.programado[diaMostrado] : null;
+  const sugerido = r.real ? r.real.kgReal : r.kgDia;
+  const valor = prog != null ? prog : sugerido.toFixed(1);
+  return `
+    <div class="programado">
+      <h3 style="margin:1.6rem 0 0.6rem; font-size:1rem; color:var(--texto);">📋 Alimento programado — Día ${diaMostrado}</h3>
+      <div class="programado-row">
+        <div class="campo" style="flex:1; min-width:160px;">
+          <label>Alimento programado (kg)</label>
+          <input type="number" step="any" id="inputProgramado" value="${valor}" />
+        </div>
+        <button type="button" class="btn btn--primario" onclick="programarDia()">💾 Programar día</button>
+        <button type="button" class="btn btn--neutro" onclick="exportarProgramacion()">⬇ Exportar programación</button>
+      </div>
+      ${prog != null ? `<p class="programado-nota">✓ Día ${diaMostrado} programado con ${prog} kg.</p>` : '<p class="programado-nota">Sugerido: ' + sugerido.toFixed(1) + ' kg (la ración a dar). Ajústalo si hace falta y programa.</p>'}
+    </div>`;
 }
 
 // Ajuste de consumo (triángulo de arrastre): guarda el % y recalcula la ración real.
@@ -103,26 +198,31 @@ function renderRacion() {
     <span class="dato">📅 Siembra: ${laguna.fechaSiembra}</span>
   `;
 
-  const r = FeedingEngine.calcularRacion(laguna);
+  const diasProyec = Number(laguna.diasProyectados) || 0;
+  const r = FeedingEngine.calcularRacion(laguna, new Date(), diaVista);
+  diaMostrado = r.diaCultivo;
   const cont = document.getElementById('racionContenido');
+  const esHoy = (diaVista === null);
+  const nav = navegadorDiaHTML(laguna, r.diaCultivo, diasProyec, esHoy);
 
   if (r.fueraDeRango) {
     const msg = r.motivo === 'aun-no-siembra'
-      ? 'La fecha de siembra todavía no llega.'
-      : 'El proyecto ya superó los días de cultivo proyectados.';
-    cont.innerHTML = `<div class="aviso">${msg}</div>`;
+      ? 'La fecha de siembra todavía no llega. Usa ▶ para ver los días del proyecto.'
+      : 'El proyecto ya superó los días proyectados. Usa ◀ para ver días anteriores.';
+    cont.innerHTML = nav + `<div class="aviso">${msg}</div>`;
     return;
   }
 
-  cont.innerHTML = `
+  const suf = esHoy ? 'HOY' : `Día ${r.diaCultivo}`;
+  cont.innerHTML = nav + `
     <div class="ration-grid">
       <div class="ration-card destacado">
         <div class="valor">${r.kgDia.toFixed(1)} kg</div>
-        <div class="etiqueta">Ración teórica HOY</div>
+        <div class="etiqueta">Ración teórica ${suf}</div>
       </div>
       <div class="ration-card destacado">
         <div class="valor">${r.lbDia} lb</div>
-        <div class="etiqueta">Ración teórica HOY (lb)</div>
+        <div class="etiqueta">Ración teórica ${suf} (lb)</div>
       </div>
       <div class="ration-card">
         <div class="valor">${r.diaCultivo}</div>
@@ -149,11 +249,12 @@ function renderRacion() {
         <div class="etiqueta">Sacos de 25 kg</div>
       </div>
     </div>
-    ${r.real ? bloqueRacionReal(r.real) : ''}
+    ${r.real ? bloqueRacionReal(r.real, suf) : ''}
+    ${programacionHTML(laguna, r)}
   `;
 }
 
-function bloqueRacionReal(rr) {
+function bloqueRacionReal(rr, suf = 'HOY') {
   const pct = rr.consumoPct;
   const pills = [100, 75, 50, 25, 0].map((p) =>
     `<button type="button" class="consumo-pill${pct === p ? ' activo' : ''}" onclick="cambiarConsumo(${p})">${p}%</button>`
@@ -168,11 +269,11 @@ function bloqueRacionReal(rr) {
     <div class="ration-grid">
       <div class="ration-card destacado destacado-real">
         <div class="valor">${rr.kgReal.toFixed(1)} kg</div>
-        <div class="etiqueta">Ración a dar HOY${etiquetaConsumo}</div>
+        <div class="etiqueta">Ración a dar ${suf}${etiquetaConsumo}</div>
       </div>
       <div class="ration-card destacado destacado-real">
         <div class="valor">${rr.lbReal} lb</div>
-        <div class="etiqueta">Ración a dar HOY (lb)${etiquetaConsumo}</div>
+        <div class="etiqueta">Ración a dar ${suf} (lb)${etiquetaConsumo}</div>
       </div>
       <div class="ration-card">
         <div class="valor">${rr.pesoReal.toFixed(2)} g</div>

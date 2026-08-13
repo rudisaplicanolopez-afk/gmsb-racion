@@ -399,6 +399,40 @@ body {
   box-shadow: 0 8px 22px rgba(14, 154, 167, 0.32);
 }
 
+/* ---------- Navegador de días ---------- */
+.dia-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1.1rem;
+  flex-wrap: wrap;
+}
+.dia-btn {
+  width: 42px; height: 42px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--azul-300);
+  background: var(--chip-bg);
+  color: var(--azul-500);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all var(--transicion);
+}
+.dia-btn:hover:not(:disabled) { background: var(--azul-500); color: #fff; border-color: transparent; }
+.dia-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.dia-nav__info { text-align: center; min-width: 130px; }
+.dia-nav__dia { font-weight: 700; color: var(--texto); font-size: 1rem; }
+.dia-nav__fecha { font-size: 0.82rem; color: var(--texto-suave); }
+.dia-hoy { padding: 0.45rem 0.9rem; }
+
+/* ---------- Alimento programado ---------- */
+.programado { margin-top: 0.4rem; padding-top: 1.2rem; border-top: 1px dashed var(--borde); }
+.programado-row { display: flex; align-items: flex-end; gap: 0.6rem; flex-wrap: wrap; }
+.programado-nota { font-size: 0.82rem; color: var(--texto-suave); margin: 0.6rem 0 0; }
+@media (max-width: 480px) {
+  .programado-row .btn { flex: 1; justify-content: center; }
+}
+
 /* ---------- Barra de consumo (triángulo de arrastre) ---------- */
 .consumo-selector { margin: 0 0 1rem; }
 .consumo-label { font-size: 0.85rem; font-weight: 600; color: var(--texto-suave); margin-bottom: 0.5rem; }
