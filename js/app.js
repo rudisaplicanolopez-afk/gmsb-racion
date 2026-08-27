@@ -249,17 +249,129 @@ function renderRacion() {
         <div class="etiqueta">Sacos de 25 kg</div>
       </div>
     </div>
-    ${r.real ? bloqueRacionReal(r.real, suf) : ''}
+    ${r.real ? bloqueRacionReal(r.real, suf, laguna, r) : ''}
     ${programacionHTML(laguna, r)}
   `;
 }
 
-function bloqueRacionReal(rr, suf = 'HOY') {
+// Minigráfica de datos REALES: evolución del peso y la sobrevivencia que el
+// usuario mide en campo. Cada punto es una biometría registrada (al guardar la
+// laguna con un peso real). Muestra cómo se ha comportado el cultivo de verdad.
+function miniGraficaHTML(laguna, r) {
+  const bios = (Array.isArray(laguna.biometrias) ? laguna.biometrias : [])
+    .filter((b) => (Number(b.peso) || 0) > 0)
+    .slice()
+    .sort((a, b) => a.dia - b.dia);
+
+  if (!bios.length) {
+    return `
+      <div class="mg-wrap">
+        <p class="mg-nota">📉 Aún no hay biometrías registradas. Cada vez que <strong>guardes la laguna</strong> con un <strong>peso real medido</strong>, se agrega un punto aquí y podrás ver la evolución real de tu cultivo semana a semana.</p>
+      </div>`;
+  }
+
+  const dias = Number(laguna.diasProyectados) || 0;
+  const maxDia = Math.max(dias, bios[bios.length - 1].dia, 2);
+  const pesoMax = (Math.max.apply(null, bios.map((b) => Number(b.peso) || 0)) || 1) * 1.15;
+
+  const W = 680, H = 300, mL = 50, mR = 52, mT = 26, mB = 46;
+  const pW = W - mL - mR, pH = H - mT - mB;
+  const X = (d) => mL + ((d - 1) / (maxDia - 1)) * pW;
+  const Yp = (g) => mT + pH - (Math.max(0, g) / pesoMax) * pH;
+  const Ys = (p) => mT + pH - (Math.max(0, Math.min(100, p)) / 100) * pH;
+
+  // Rejilla y etiquetas semanales de referencia.
+  const semanas = Math.floor(maxDia / 7);
+  const paso = semanas > 8 ? 2 : 1;
+  let grid = '', xlabels = '';
+  for (let w = 0; w * 7 <= maxDia; w++) {
+    const d = w === 0 ? 1 : w * 7;
+    if (d > maxDia) break;
+    const xx = X(d).toFixed(1);
+    grid += `<line class="mg-grid" x1="${xx}" y1="${mT}" x2="${xx}" y2="${mT + pH}"/>`;
+    if (w === 0 || w % paso === 0) {
+      xlabels += `<text class="mg-txt" x="${xx}" y="${mT + pH + 16}" text-anchor="middle">${w === 0 ? 'D1' : 'S' + w}</text>`;
+    }
+  }
+
+  // Línea + puntos del PESO real (verde).
+  const puntosPeso = bios.map((b) => `${X(b.dia).toFixed(1)},${Yp(Number(b.peso)).toFixed(1)}`).join(' ');
+  let dotsPeso = '';
+  bios.forEach((b) => {
+    const xx = X(b.dia).toFixed(1), yy = Yp(Number(b.peso)).toFixed(1);
+    dotsPeso += `<circle cx="${xx}" cy="${yy}" r="4.2" fill="#65a30d" stroke="#fff" stroke-width="1.5"><title>Día ${b.dia}${b.fecha ? ' · ' + b.fecha : ''}: ${Number(b.peso).toFixed(2)} g</title></circle>`;
+    dotsPeso += `<text class="mg-txt mg-txt-b" x="${xx}" y="${(Number(yy) - 8).toFixed(1)}" text-anchor="middle" fill="#4d7c0f">${Number(b.peso).toFixed(1)}</text>`;
+  });
+
+  // Línea + puntos de la SOBREVIVENCIA real (cian). Solo los que la tengan.
+  const biosSurv = bios.filter((b) => b.sobrevivencia != null && b.sobrevivencia !== '' && !isNaN(Number(b.sobrevivencia)));
+  const puntosSurv = biosSurv.map((b) => `${X(b.dia).toFixed(1)},${Ys(Number(b.sobrevivencia)).toFixed(1)}`).join(' ');
+  let dotsSurv = '';
+  biosSurv.forEach((b) => {
+    const xx = X(b.dia).toFixed(1), yy = Ys(Number(b.sobrevivencia)).toFixed(1);
+    dotsSurv += `<circle cx="${xx}" cy="${yy}" r="4.2" fill="#0891b2" stroke="#fff" stroke-width="1.5"><title>Día ${b.dia}${b.fecha ? ' · ' + b.fecha : ''}: ${Number(b.sobrevivencia).toFixed(1)} %</title></circle>`;
+    dotsSurv += `<text class="mg-txt" x="${xx}" y="${(Number(yy) + 15).toFixed(1)}" text-anchor="middle" fill="#0e7490">${Number(b.sobrevivencia).toFixed(0)}%</text>`;
+  });
+
+  const ejes = `
+    <text class="mg-txt" x="${mL - 6}" y="${mT + 4}" text-anchor="end">${pesoMax.toFixed(0)}g</text>
+    <text class="mg-txt" x="${mL - 6}" y="${mT + pH}" text-anchor="end">0g</text>
+    <text class="mg-txt" x="${W - mR + 6}" y="${mT + 4}" text-anchor="start">100%</text>
+    <text class="mg-txt" x="${W - mR + 6}" y="${mT + pH / 2}" text-anchor="start">50%</text>
+    <text class="mg-txt" x="${W - mR + 6}" y="${mT + pH}" text-anchor="start">0%</text>`;
+
+  const lineaPeso = bios.length > 1
+    ? `<polyline fill="none" stroke="#84cc16" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" points="${puntosPeso}"/>` : '';
+  const lineaSurv = biosSurv.length > 1
+    ? `<polyline fill="none" stroke="#22d3ee" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" points="${puntosSurv}"/>` : '';
+
+  // Lista de biometrías registradas con botón para borrar cada una.
+  const lista = bios.map((b) => {
+    const sem = Math.max(1, Math.round(b.dia / 7));
+    const surv = (b.sobrevivencia != null && b.sobrevivencia !== '') ? ` · ${Number(b.sobrevivencia).toFixed(0)}% sobrev.` : '';
+    return `<div class="mg-fila">
+      <span><strong>Sem ${sem}</strong> · Día ${b.dia}${b.fecha ? ' · ' + b.fecha : ''} — ${Number(b.peso).toFixed(2)} g${surv}</span>
+      <button type="button" class="mg-del" title="Borrar esta biometría" onclick="eliminarBiometria(${b.dia})">✕</button>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="mg-wrap">
+      <div class="mg-leyenda">
+        <span class="mg-item"><span class="mg-punto" style="background:#65a30d"></span>Peso real (g)</span>
+        <span class="mg-item"><span class="mg-punto" style="background:#0891b2"></span>Sobrevivencia real (%)</span>
+      </div>
+      <svg class="mini-grafica" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución real de peso y sobrevivencia">
+        ${grid}
+        <line class="mg-axis" x1="${mL}" y1="${mT + pH}" x2="${W - mR}" y2="${mT + pH}"/>
+        ${lineaPeso}${lineaSurv}
+        ${dotsPeso}${dotsSurv}
+        ${ejes}${xlabels}
+      </svg>
+      <p class="mg-nota">Evolución real según tus biometrías registradas (${bios.length}). Cada punto es una medición que guardaste.</p>
+      <div class="mg-lista">${lista}</div>
+    </div>`;
+}
+
+// Borra una biometría del historial (por su día) y redibuja.
+function eliminarBiometria(dia) {
+  const laguna = Storage.getLaguna(lagunaSeleccionadaId);
+  if (!laguna || !Array.isArray(laguna.biometrias)) return;
+  if (!confirm('¿Borrar esta biometría de la gráfica? No se puede deshacer.')) return;
+  laguna.biometrias = laguna.biometrias.filter((b) => Number(b.dia) !== Number(dia));
+  Storage.upsertLaguna(laguna);
+  renderRacion();
+  mostrarConfirmacion('Biometría borrada.');
+}
+window.eliminarBiometria = eliminarBiometria;
+
+function bloqueRacionReal(rr, suf = 'HOY', laguna = null, r = null) {
   const pct = rr.consumoPct;
   const pills = [100, 75, 50, 25, 0].map((p) =>
     `<button type="button" class="consumo-pill${pct === p ? ' activo' : ''}" onclick="cambiarConsumo(${p})">${p}%</button>`
   ).join('');
   const etiquetaConsumo = pct === 100 ? '' : ` · al ${pct}%`;
+  const grafica = (laguna && r) ? miniGraficaHTML(laguna, r) : '';
   return `
     <h3 style="margin:1.6rem 0 0.8rem; font-size:1rem; color:var(--texto);">📏 Ración REAL (según peso medido)</h3>
     <div class="consumo-selector">
@@ -304,6 +416,7 @@ function bloqueRacionReal(rr, suf = 'HOY') {
         <div class="etiqueta">Sacos de 25 kg</div>
       </div>
     </div>
+    ${grafica}
   `;
 }
 
@@ -331,6 +444,32 @@ function limpiarFormulario() {
   document.getElementById('btnEliminar').style.display = 'none';
 }
 
+// Guarda (o actualiza) la biometría del día de hoy en laguna.biometrias, usando
+// el peso real y la sobrevivencia real que estén en la laguna. Un punto por día.
+function registrarBiometria(laguna) {
+  const peso = Number(laguna.pesoReal) || 0;
+  if (peso <= 0 || !laguna.fechaSiembra) return;
+  const dia = FeedingEngine.diaCultivoDesde(laguna.fechaSiembra);
+  if (!(dia >= 1)) return;
+
+  if (!Array.isArray(laguna.biometrias)) laguna.biometrias = [];
+  const sob = (laguna.supervivenciaReal !== '' && laguna.supervivenciaReal != null && !isNaN(Number(laguna.supervivenciaReal)))
+    ? Number(laguna.supervivenciaReal) : null;
+  const fca = (laguna.fca !== '' && laguna.fca != null && !isNaN(Number(laguna.fca))) ? Number(laguna.fca) : null;
+  const fecha = new Date().toISOString().slice(0, 10);
+
+  const existente = laguna.biometrias.find((b) => Number(b.dia) === dia);
+  if (existente) {
+    existente.peso = peso;
+    existente.sobrevivencia = sob;
+    existente.fca = fca;
+    existente.fecha = fecha;
+  } else {
+    laguna.biometrias.push({ dia, fecha, peso, sobrevivencia: sob, fca });
+  }
+  laguna.biometrias.sort((a, b) => a.dia - b.dia);
+}
+
 document.getElementById('formLaguna').addEventListener('submit', (e) => {
   e.preventDefault();
 
@@ -355,6 +494,10 @@ document.getElementById('formLaguna').addEventListener('submit', (e) => {
   FIELDS.forEach((f) => {
     laguna[f] = document.getElementById(f).value;
   });
+
+  // Registrar la biometría de hoy en el historial (para la gráfica de datos
+  // reales). Un punto por día de cultivo: si ya hay uno de hoy, se actualiza.
+  registrarBiometria(laguna);
 
   try {
     Storage.upsertLaguna(laguna);
