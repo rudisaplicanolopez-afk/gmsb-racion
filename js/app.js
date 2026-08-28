@@ -253,7 +253,8 @@ function renderRacion() {
         <div class="etiqueta">Sacos de 25 kg</div>
       </div>
     </div>
-    ${r.real ? bloqueRacionReal(r.real, suf, laguna, r) : ''}
+    ${r.real ? bloqueRacionReal(r.real, suf) : ''}
+    ${seccionBiometriasHTML(laguna, r)}
     ${programacionHTML(laguna, r)}
   `;
 }
@@ -471,13 +472,12 @@ function eliminarBiometria(dia) {
 }
 window.eliminarBiometria = eliminarBiometria;
 
-function bloqueRacionReal(rr, suf = 'HOY', laguna = null, r = null) {
+function bloqueRacionReal(rr, suf = 'HOY') {
   const pct = rr.consumoPct;
   const pills = [100, 75, 50, 25, 0].map((p) =>
     `<button type="button" class="consumo-pill${pct === p ? ' activo' : ''}" onclick="cambiarConsumo(${p})">${p}%</button>`
   ).join('');
   const etiquetaConsumo = pct === 100 ? '' : ` · al ${pct}%`;
-  const grafica = (laguna && r) ? miniGraficaHTML(laguna, r) : '';
   return `
     <h3 style="margin:1.6rem 0 0.8rem; font-size:1rem; color:var(--texto);">📏 Ración REAL (según peso medido)</h3>
     <div class="consumo-selector">
@@ -522,7 +522,15 @@ function bloqueRacionReal(rr, suf = 'HOY', laguna = null, r = null) {
         <div class="etiqueta">Sacos de 25 kg</div>
       </div>
     </div>
-    ${grafica}
+  `;
+}
+
+// Sección de biometrías (gráfica + formulario para agregar). SIEMPRE se muestra,
+// aunque la laguna todavía no tenga peso real, para poder registrar la primera.
+function seccionBiometriasHTML(laguna, r) {
+  return `
+    <h3 style="margin:1.6rem 0 0.8rem; font-size:1rem; color:var(--texto);">📈 Biometrías reales (peso y sobrevivencia)</h3>
+    ${miniGraficaHTML(laguna, r)}
   `;
 }
 
