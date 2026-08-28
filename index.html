@@ -154,12 +154,17 @@
 
   <!-- Panel de administrador (solo admin) -->
   <section class="tarjeta" id="panelAdmin" hidden>
-    <h2 class="tarjeta__titulo"><span class="num">⚙</span> Administración de usuarios y zonas</h2>
-    <p style="font-size:0.85rem; color:var(--texto-suave); margin-top:-0.6rem;">
-      Marca las zonas que cada usuario podrá ver y editar. Para crear cuentas nuevas usa
-      Supabase → Authentication → Add user; aquí les asignas las zonas.
-    </p>
-    <div id="listaUsuarios" class="lista-usuarios"></div>
+    <div class="tarjeta__head">
+      <h2 class="tarjeta__titulo"><span class="num">⚙</span> Administración de usuarios y zonas</h2>
+      <button type="button" id="btnVerUsuarios" class="btn btn--neutro btn--sm" onclick="togglePanelUsuarios()">👥 Ver usuarios</button>
+    </div>
+    <div id="adminBody" hidden>
+      <p style="font-size:0.85rem; color:var(--texto-suave); margin-top:-0.4rem;">
+        Marca las zonas que cada usuario podrá ver y editar. Para crear cuentas nuevas usa
+        Supabase → Authentication → Add user; aquí les asignas las zonas.
+      </p>
+      <div id="listaUsuarios" class="lista-usuarios"></div>
+    </div>
   </section>
 
   <footer class="app-footer">

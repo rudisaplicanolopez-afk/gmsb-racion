@@ -27,6 +27,8 @@ function poblarSelectorZona() {
 let zonaFiltro = 'todas';
 let diaVista = null;      // null = hoy; número = día seleccionado
 let diaMostrado = null;   // día que se está mostrando actualmente
+let listaBiometriasAbierta = false; // la lista de mediciones arranca oculta
+let panelUsuariosAbierto = false;   // la lista de usuarios (admin) arranca oculta
 
 function renderListaLagunas() {
   let lagunas = Storage.getLagunas();
@@ -422,9 +424,39 @@ function miniGraficaHTML(laguna, r) {
       </svg>
       <p class="mg-nota">Evolución real según tus biometrías registradas (${bios.length}). Cada punto es una medición que guardaste.</p>
       ${formBiometriaHTML()}
-      <div class="mg-lista">${lista}</div>
+      <button type="button" id="btnVerBiometrias" class="btn btn--neutro btn--sm mg-verlista" onclick="toggleListaBiometrias()">${listaBiometriasAbierta ? '▲ Ocultar mediciones' : '📋 Ver mediciones'} (${bios.length})</button>
+      <div class="mg-lista"${listaBiometriasAbierta ? '' : ' hidden'}>${lista}</div>
     </div>`;
 }
+
+// Muestra/oculta la lista de mediciones por semana (para no ocupar espacio).
+function toggleListaBiometrias() {
+  listaBiometriasAbierta = !listaBiometriasAbierta;
+  const lista = document.querySelector('.mg-lista');
+  const btn = document.getElementById('btnVerBiometrias');
+  if (lista) lista.hidden = !listaBiometriasAbierta;
+  if (btn) {
+    const n = lista ? lista.querySelectorAll('.mg-fila').length : 0;
+    btn.textContent = (listaBiometriasAbierta ? '▲ Ocultar mediciones' : '📋 Ver mediciones') + ` (${n})`;
+  }
+}
+window.toggleListaBiometrias = toggleListaBiometrias;
+
+// Muestra/oculta la lista de usuarios del panel de administración.
+function actualizarBtnUsuarios(n) {
+  const btn = document.getElementById('btnVerUsuarios');
+  if (!btn) return;
+  const cuenta = (typeof n === 'number') ? ` (${n})` : '';
+  btn.textContent = (panelUsuariosAbierto ? '▲ Ocultar usuarios' : '👥 Ver usuarios') + cuenta;
+}
+function togglePanelUsuarios() {
+  panelUsuariosAbierto = !panelUsuariosAbierto;
+  const body = document.getElementById('adminBody');
+  if (body) body.hidden = !panelUsuariosAbierto;
+  const n = document.querySelectorAll('#listaUsuarios .usuario-fila').length;
+  actualizarBtnUsuarios(n);
+}
+window.togglePanelUsuarios = togglePanelUsuarios;
 
 // Borra una biometría del historial (por su día) y redibuja.
 function eliminarBiometria(dia) {
@@ -780,8 +812,10 @@ async function renderPanelAdmin() {
   const perfiles = await Storage.listarPerfiles();
   if (!perfiles.length) {
     cont.innerHTML = '<p class="vacio">No hay usuarios todavía.</p>';
+    actualizarBtnUsuarios(0);
     return;
   }
+  actualizarBtnUsuarios(perfiles.length);
 
   cont.innerHTML = perfiles.map((p) => {
     const zonas = Array.isArray(p.zonas) ? p.zonas : [];
