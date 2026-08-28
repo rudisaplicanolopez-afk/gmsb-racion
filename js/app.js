@@ -5,8 +5,10 @@ let lagunaSeleccionadaId = null;
 const FIELDS = [
   'nombre', 'zona', 'finca', 'areaHa', 'fechaSiembra', 'densidad', 'sembrados',
   'pesoTransferencia', 'diasProyectados', 'mortalidad1', 'mortalidad2',
-  'ta30', 'tc30', 'pesoReal', 'supervivenciaReal', 'fca',
+  'ta30', 'tc30',
 ];
+// El peso real, la sobrevivencia real y el FCA ya NO se ingresan en el
+// formulario: provienen de la última biometría registrada en la gráfica.
 
 function zonasPermitidas() {
   if (window.Perfil && window.Perfil.rol === 'admin') return [1, 2, 3, 4, 5];
@@ -254,9 +256,78 @@ function renderRacion() {
   `;
 }
 
+// Formulario para agregar/corregir una biometría en una fecha específica. Sirve
+// para cargar las semanas ya medidas y que cada punto caiga en su día correcto.
+function formBiometriaHTML() {
+  const hoy = new Date().toISOString().slice(0, 10);
+  return `
+    <div class="mg-form">
+      <div class="mg-form-titulo">➕ Agregar / corregir biometría</div>
+      <div class="mg-form-row">
+        <label class="mg-campo"><span>Fecha de la medición</span><input type="date" id="mgFecha" value="${hoy}" /></label>
+        <label class="mg-campo"><span>Peso (g)</span><input type="number" step="any" id="mgPeso" placeholder="Ej. 11.5" /></label>
+        <label class="mg-campo"><span>Sobrevivencia (%)</span><input type="number" step="any" id="mgSurv" placeholder="Ej. 85" /></label>
+        <label class="mg-campo"><span>FCA (opcional)</span><input type="number" step="any" id="mgFca" placeholder="Ej. 1.35" /></label>
+        <button type="button" class="btn btn--primario mg-add" onclick="agregarBiometriaManual()">Agregar</button>
+      </div>
+      <small class="mg-hint">Cada medición se coloca en su semana según la fecha. La <strong>última</strong> que registres es la que usa la Ración REAL. Registra aquí las semanas que ya mediste para completar la curva.</small>
+    </div>`;
+}
+
+// Agrega (o corrige) una biometría en la fecha indicada por el usuario. Calcula
+// el día de cultivo a partir de la fecha de siembra para ubicarla en su semana.
+function agregarBiometriaManual() {
+  const laguna = Storage.getLaguna(lagunaSeleccionadaId);
+  if (!laguna) return;
+  if (!laguna.fechaSiembra) { alert('Primero ponle una Fecha de siembra a la laguna.'); return; }
+  const fecha = (document.getElementById('mgFecha') || {}).value;
+  const peso = parseFloat((document.getElementById('mgPeso') || {}).value);
+  const survRaw = (document.getElementById('mgSurv') || {}).value;
+  const fcaRaw = (document.getElementById('mgFca') || {}).value;
+  if (!fecha) { alert('Elige la fecha de la medición.'); return; }
+  if (!(peso > 0)) { alert('Escribe un peso válido (mayor que 0).'); return; }
+
+  const [y, m, d] = fecha.split('-').map(Number);
+  const dia = FeedingEngine.diaCultivoDesde(laguna.fechaSiembra, new Date(y, m - 1, d));
+  if (!(dia >= 1)) { alert('Esa fecha es anterior a la fecha de siembra de la laguna.'); return; }
+
+  const sob = (survRaw !== '' && !isNaN(Number(survRaw))) ? Number(survRaw) : null;
+  const fca = (fcaRaw !== '' && !isNaN(Number(fcaRaw))) ? Number(fcaRaw) : null;
+  if (!Array.isArray(laguna.biometrias)) laguna.biometrias = [];
+  const ex = laguna.biometrias.find((b) => Number(b.dia) === dia);
+  if (ex) { ex.peso = peso; ex.sobrevivencia = sob; ex.fca = fca; ex.fecha = fecha; }
+  else laguna.biometrias.push({ dia, fecha, peso, sobrevivencia: sob, fca });
+  laguna.biometrias.sort((a, b) => a.dia - b.dia);
+
+  // La Ración REAL siempre usa la última biometría registrada.
+  sincronizarRealDesdeBiometrias(laguna);
+  Storage.upsertLaguna(laguna);
+  renderRacion();
+  mostrarConfirmacion(`Biometría del ${fecha} agregada (Día ${dia}).`);
+}
+window.agregarBiometriaManual = agregarBiometriaManual;
+
+// Deja el peso/sobrevivencia/FCA reales (los que usa la Ración REAL) igual a la
+// biometría más reciente. Si no queda ninguna, los limpia.
+function sincronizarRealDesdeBiometrias(laguna) {
+  const bios = (Array.isArray(laguna.biometrias) ? laguna.biometrias : [])
+    .filter((b) => (Number(b.peso) || 0) > 0)
+    .sort((a, b) => a.dia - b.dia);
+  if (!bios.length) {
+    laguna.pesoReal = '';
+    laguna.supervivenciaReal = '';
+    laguna.fca = '';
+    return;
+  }
+  const u = bios[bios.length - 1];
+  laguna.pesoReal = u.peso;
+  laguna.supervivenciaReal = (u.sobrevivencia != null && u.sobrevivencia !== '') ? u.sobrevivencia : '';
+  laguna.fca = (u.fca != null && u.fca !== '') ? u.fca : '';
+}
+
 // Minigráfica de datos REALES: evolución del peso y la sobrevivencia que el
-// usuario mide en campo. Cada punto es una biometría registrada (al guardar la
-// laguna con un peso real). Muestra cómo se ha comportado el cultivo de verdad.
+// usuario mide en campo. Cada punto es una biometría registrada. Muestra cómo
+// se ha comportado el cultivo de verdad.
 function miniGraficaHTML(laguna, r) {
   const bios = (Array.isArray(laguna.biometrias) ? laguna.biometrias : [])
     .filter((b) => (Number(b.peso) || 0) > 0)
@@ -266,7 +337,8 @@ function miniGraficaHTML(laguna, r) {
   if (!bios.length) {
     return `
       <div class="mg-wrap">
-        <p class="mg-nota">📉 Aún no hay biometrías registradas. Cada vez que <strong>guardes la laguna</strong> con un <strong>peso real medido</strong>, se agrega un punto aquí y podrás ver la evolución real de tu cultivo semana a semana.</p>
+        <p class="mg-nota">📉 Aún no hay biometrías registradas. Agrega abajo tus mediciones (por fecha) y se irá dibujando la curva real de tu cultivo.</p>
+        ${formBiometriaHTML()}
       </div>`;
   }
 
@@ -349,6 +421,7 @@ function miniGraficaHTML(laguna, r) {
         ${ejes}${xlabels}
       </svg>
       <p class="mg-nota">Evolución real según tus biometrías registradas (${bios.length}). Cada punto es una medición que guardaste.</p>
+      ${formBiometriaHTML()}
       <div class="mg-lista">${lista}</div>
     </div>`;
 }
@@ -359,6 +432,7 @@ function eliminarBiometria(dia) {
   if (!laguna || !Array.isArray(laguna.biometrias)) return;
   if (!confirm('¿Borrar esta biometría de la gráfica? No se puede deshacer.')) return;
   laguna.biometrias = laguna.biometrias.filter((b) => Number(b.dia) !== Number(dia));
+  sincronizarRealDesdeBiometrias(laguna);
   Storage.upsertLaguna(laguna);
   renderRacion();
   mostrarConfirmacion('Biometría borrada.');
@@ -444,32 +518,6 @@ function limpiarFormulario() {
   document.getElementById('btnEliminar').style.display = 'none';
 }
 
-// Guarda (o actualiza) la biometría del día de hoy en laguna.biometrias, usando
-// el peso real y la sobrevivencia real que estén en la laguna. Un punto por día.
-function registrarBiometria(laguna) {
-  const peso = Number(laguna.pesoReal) || 0;
-  if (peso <= 0 || !laguna.fechaSiembra) return;
-  const dia = FeedingEngine.diaCultivoDesde(laguna.fechaSiembra);
-  if (!(dia >= 1)) return;
-
-  if (!Array.isArray(laguna.biometrias)) laguna.biometrias = [];
-  const sob = (laguna.supervivenciaReal !== '' && laguna.supervivenciaReal != null && !isNaN(Number(laguna.supervivenciaReal)))
-    ? Number(laguna.supervivenciaReal) : null;
-  const fca = (laguna.fca !== '' && laguna.fca != null && !isNaN(Number(laguna.fca))) ? Number(laguna.fca) : null;
-  const fecha = new Date().toISOString().slice(0, 10);
-
-  const existente = laguna.biometrias.find((b) => Number(b.dia) === dia);
-  if (existente) {
-    existente.peso = peso;
-    existente.sobrevivencia = sob;
-    existente.fca = fca;
-    existente.fecha = fecha;
-  } else {
-    laguna.biometrias.push({ dia, fecha, peso, sobrevivencia: sob, fca });
-  }
-  laguna.biometrias.sort((a, b) => a.dia - b.dia);
-}
-
 document.getElementById('formLaguna').addEventListener('submit', (e) => {
   e.preventDefault();
 
@@ -494,10 +542,6 @@ document.getElementById('formLaguna').addEventListener('submit', (e) => {
   FIELDS.forEach((f) => {
     laguna[f] = document.getElementById(f).value;
   });
-
-  // Registrar la biometría de hoy en el historial (para la gráfica de datos
-  // reales). Un punto por día de cultivo: si ya hay uno de hoy, se actualiza.
-  registrarBiometria(laguna);
 
   try {
     Storage.upsertLaguna(laguna);

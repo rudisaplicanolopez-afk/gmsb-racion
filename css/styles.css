@@ -694,6 +694,36 @@ body::before {
 }
 .mg-del:hover { background: rgba(214, 69, 69, 0.24); }
 
+/* Formulario para agregar biometrías por fecha */
+.mg-form {
+  margin: 0.9rem 0.2rem 0.2rem;
+  padding: 0.8rem 0.7rem;
+  background: var(--input-bg);
+  border: 1px dashed var(--borde);
+  border-radius: var(--radio-sm);
+}
+.mg-form-titulo { font-size: 0.85rem; font-weight: 700; color: var(--card-info-valor); margin-bottom: 0.6rem; }
+.mg-form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem; }
+.mg-campo { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; min-width: 120px; }
+.mg-campo span { font-size: 0.74rem; font-weight: 600; color: var(--texto-suave); }
+.mg-campo input {
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 0.5rem 0.6rem;
+  border: 1.5px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+  color: var(--texto);
+  width: 100%;
+}
+.mg-campo input:focus { outline: none; border-color: var(--azul-500); box-shadow: 0 0 0 3px rgba(21, 119, 194, 0.2); }
+.mg-add { flex-shrink: 0; }
+.mg-hint { display: block; font-size: 0.73rem; color: var(--texto-suave); margin-top: 0.5rem; line-height: 1.35; }
+@media (max-width: 480px) {
+  .mg-campo { min-width: 0; flex-basis: calc(50% - 0.3rem); }
+  .mg-add { width: 100%; justify-content: center; }
+}
+
 /* ---------- Footer ---------- */
 .app-footer { text-align: center; color: var(--texto-suave); font-size: 0.8rem; padding: 0 1rem; }
 
