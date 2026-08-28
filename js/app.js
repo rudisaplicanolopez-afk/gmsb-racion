@@ -496,7 +496,7 @@ function bloqueRacionReal(rr, suf = 'HOY', laguna = null, r = null) {
 
 function cargarFormulario(id) {
   const laguna = Storage.getLaguna(id);
-  document.getElementById('tituloFormulario').textContent = laguna ? `3. Editar laguna: ${laguna.nombre}` : '3. Nueva laguna';
+  document.getElementById('tituloFormulario').textContent = laguna ? `Editar laguna: ${laguna.nombre}` : 'Nueva laguna';
   document.getElementById('lagunaId').value = laguna ? laguna.id : '';
   FIELDS.forEach((f) => {
     const elc = document.getElementById(f);
@@ -513,9 +513,21 @@ function cargarFormulario(id) {
 function limpiarFormulario() {
   document.getElementById('formLaguna').reset();
   document.getElementById('lagunaId').value = '';
-  document.getElementById('tituloFormulario').textContent = '3. Nueva laguna';
+  document.getElementById('tituloFormulario').textContent = 'Nueva laguna';
   document.getElementById('btnCancelarEdicion').style.display = 'none';
   document.getElementById('btnEliminar').style.display = 'none';
+}
+
+// Abre / cierra el apartado de edición (oculto por defecto para no estorbar).
+function abrirFormulario() {
+  const sec = document.getElementById('seccionFormulario');
+  if (!sec) return;
+  sec.hidden = false;
+  sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function cerrarFormulario() {
+  const sec = document.getElementById('seccionFormulario');
+  if (sec) sec.hidden = true;
 }
 
 document.getElementById('formLaguna').addEventListener('submit', (e) => {
@@ -560,6 +572,7 @@ document.getElementById('formLaguna').addEventListener('submit', (e) => {
   renderListaLagunas();
   renderRacion();
   cargarFormulario(id);
+  cerrarFormulario();
   mostrarConfirmacion(`Laguna "${nombre}" guardada correctamente.`);
 });
 
@@ -581,6 +594,7 @@ function mostrarConfirmacion(mensaje) {
 
 document.getElementById('btnCancelarEdicion').addEventListener('click', () => {
   limpiarFormulario();
+  cerrarFormulario();
 });
 
 document.getElementById('btnEliminar').addEventListener('click', () => {
@@ -590,9 +604,22 @@ document.getElementById('btnEliminar').addEventListener('click', () => {
   Storage.deleteLaguna(id);
   if (lagunaSeleccionadaId === id) lagunaSeleccionadaId = null;
   limpiarFormulario();
+  cerrarFormulario();
   renderListaLagunas();
   renderRacion();
 });
+
+// Botones para abrir/cerrar el apartado de edición.
+document.getElementById('btnNuevaLaguna').addEventListener('click', () => {
+  limpiarFormulario();
+  abrirFormulario();
+});
+document.getElementById('btnEditarLaguna').addEventListener('click', () => {
+  if (!lagunaSeleccionadaId) { alert('Primero selecciona una laguna arriba.'); return; }
+  cargarFormulario(lagunaSeleccionadaId);
+  abrirFormulario();
+});
+document.getElementById('btnCerrarFormulario').addEventListener('click', cerrarFormulario);
 
 document.getElementById('btnExportar').addEventListener('click', () => Storage.exportarJSON());
 

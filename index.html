@@ -81,25 +81,34 @@
 
   <!-- 1. Selector de laguna -->
   <section class="tarjeta">
-    <h2 class="tarjeta__titulo"><span class="num">1</span> Selecciona la laguna</h2>
+    <div class="tarjeta__head">
+      <h2 class="tarjeta__titulo"><span class="num">1</span> Selecciona la laguna</h2>
+      <button type="button" id="btnNuevaLaguna" class="btn btn--primario btn--sm">➕ Nueva laguna</button>
+    </div>
     <div id="filtroZonaCont" class="filtro-zona" style="display:none">
       <label for="filtroZona">📍 Filtrar por zona:</label>
       <select id="filtroZona"></select>
     </div>
     <div id="listaLagunas" class="lagunas-grid"></div>
-    <p id="sinLagunas" class="vacio" hidden>Aún no has registrado ninguna laguna. Crea la primera en el formulario de abajo.</p>
+    <p id="sinLagunas" class="vacio" hidden>Aún no has registrado ninguna laguna. Toca <strong>➕ Nueva laguna</strong> para crear la primera.</p>
   </section>
 
   <!-- 2. Ración de hoy -->
   <section class="tarjeta" id="panelRacion" hidden>
-    <h2 class="tarjeta__titulo"><span class="num">2</span> Ración de hoy</h2>
+    <div class="tarjeta__head">
+      <h2 class="tarjeta__titulo"><span class="num">2</span> Ración de hoy</h2>
+      <button type="button" id="btnEditarLaguna" class="btn btn--neutro btn--sm">✏️ Editar laguna</button>
+    </div>
     <div id="infoLaguna" class="info-laguna"></div>
     <div id="racionContenido"></div>
   </section>
 
-  <!-- 3. Formulario -->
-  <section class="tarjeta">
-    <h2 class="tarjeta__titulo"><span class="num">3</span> <span id="tituloFormulario">Nueva laguna</span></h2>
+  <!-- 3. Formulario (oculto hasta que se abra con un botón) -->
+  <section class="tarjeta" id="seccionFormulario" hidden>
+    <div class="tarjeta__head">
+      <h2 class="tarjeta__titulo"><span class="num">3</span> <span id="tituloFormulario">Nueva laguna</span></h2>
+      <button type="button" id="btnCerrarFormulario" class="btn btn--neutro btn--sm">✖ Cerrar</button>
+    </div>
     <form id="formLaguna" novalidate>
       <input type="hidden" id="lagunaId" />
 

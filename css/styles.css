@@ -332,6 +332,21 @@ body::before {
   letter-spacing: -0.02em;
   color: var(--texto);
 }
+/* Cabecera de tarjeta con un botón a la derecha del título */
+.tarjeta__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+}
+.tarjeta__head .tarjeta__titulo { margin: 0; }
+.btn--sm { padding: 0.45rem 0.85rem; font-size: 0.85rem; }
+@media (max-width: 480px) {
+  .tarjeta__head { gap: 0.6rem; }
+  .tarjeta__head .btn--sm { flex: 1; justify-content: center; }
+}
 .tarjeta__titulo .num {
   display: grid; place-items: center;
   width: 30px; height: 30px;
