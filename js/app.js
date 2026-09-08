@@ -29,6 +29,47 @@ let diaVista = null;      // null = hoy; número = día seleccionado
 let diaMostrado = null;   // día que se está mostrando actualmente
 let listaBiometriasAbierta = false; // la lista de mediciones arranca oculta
 let panelUsuariosAbierto = false;   // la lista de usuarios (admin) arranca oculta
+let animarRacion = false;           // anima números/barra solo al seleccionar laguna
+
+// ¿Se puede animar? No si la pestaña está oculta o el usuario pidió menos movimiento.
+function puedeAnimar() {
+  try { return !document.hidden && !window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+  catch (e) { return true; }
+}
+
+// Efecto count-up: anima los números con [data-count] dentro de un contenedor.
+// Si no se puede animar, deja el valor final (que ya viene renderizado en el texto).
+function animarNumeros(root) {
+  if (!root || !puedeAnimar()) return;
+  root.querySelectorAll('[data-count]').forEach((el) => {
+    const target = parseFloat(el.dataset.count) || 0;
+    const dec = parseInt(el.dataset.dec || '0', 10);
+    const suf = el.dataset.suf || '';
+    let t0 = null;
+    function step(t) {
+      if (!t0) t0 = t;
+      let p = Math.min(1, (t - t0) / 800);
+      p = 1 - Math.pow(1 - p, 3);
+      const val = target * p;
+      el.textContent = (dec ? val.toFixed(dec) : Math.round(val).toLocaleString('es')) + suf;
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+// Aplica las animaciones del panel de ración (números + barra) si corresponde.
+function aplicarAnimRacion(animate) {
+  const cont = document.getElementById('racionContenido');
+  if (!cont || !animate || !puedeAnimar()) return;
+  animarNumeros(cont);
+  const fill = cont.querySelector('.prog-fill');
+  if (fill) {
+    const w = fill.style.width;
+    fill.style.width = '0%';
+    requestAnimationFrame(() => { fill.style.width = w; });
+  }
+}
 
 function renderListaLagunas() {
   let lagunas = Storage.getLagunas();
@@ -46,19 +87,77 @@ function renderListaLagunas() {
   );
 
   vacio.style.display = lagunas.length ? 'none' : 'block';
-  vacio.textContent = (zonaFiltro !== 'todas' && Storage.getLagunas().length)
+  vacio.innerHTML = (zonaFiltro !== 'todas' && Storage.getLagunas().length)
     ? 'No hay lagunas en esta zona.'
-    : 'Aún no has registrado ninguna laguna. Crea la primera en el formulario de abajo.';
+    : 'Aún no has registrado ninguna laguna. Toca <strong>➕ Nueva laguna</strong> para crear la primera.';
 
   lagunas.forEach((l) => {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'chip-laguna' + (l.id === lagunaSeleccionadaId ? ' activo' : '');
-    chip.textContent = l.nombre;
-    chip.title = 'Zona ' + (l.zona || '-');
+    const est = estadoLaguna(l);
+    const pct = (est.pct != null) ? `<small class="sem-pct">${est.pct >= 0 ? '+' : ''}${est.pct.toFixed(0)}%</small>` : '';
+    chip.innerHTML = `<span class="sem sem-${est.clase}"></span><span>${l.nombre}</span>${pct}`;
+    chip.title = 'Zona ' + (l.zona || '-') + (est.pct != null ? ` · crecimiento ${est.pct >= 0 ? '+' : ''}${est.pct.toFixed(0)}% vs esperado` : '');
     chip.onclick = () => seleccionarLaguna(l.id);
     cont.appendChild(chip);
   });
+
+  const leyenda = document.getElementById('semLeyenda');
+  if (leyenda) leyenda.hidden = !lagunas.length;
+  renderResumen();
+}
+
+// Para MOSTRAR: rellena peso/sobrevivencia/FCA reales desde la última biometría.
+// (No borra nada si no hay biometrías, para respetar datos antiguos.)
+function derivarRealParaMostrar(laguna) {
+  if (!laguna) return;
+  const bios = (Array.isArray(laguna.biometrias) ? laguna.biometrias : [])
+    .filter((b) => (Number(b.peso) || 0) > 0).sort((a, b) => a.dia - b.dia);
+  if (!bios.length) return;
+  const u = bios[bios.length - 1];
+  laguna.pesoReal = u.peso;
+  laguna.supervivenciaReal = (u.sobrevivencia != null && u.sobrevivencia !== '') ? u.sobrevivencia : '';
+  laguna.fca = (u.fca != null && u.fca !== '') ? u.fca : '';
+}
+
+// Estado de la laguna según su última biometría vs el peso teórico de ese día.
+function estadoLaguna(laguna) {
+  const bios = (Array.isArray(laguna.biometrias) ? laguna.biometrias : [])
+    .filter((b) => (Number(b.peso) || 0) > 0).sort((a, b) => a.dia - b.dia);
+  if (!bios.length) return { clase: 'nodata', pct: null };
+  const b = bios[bios.length - 1];
+  const teor = FeedingEngine.pesoTeoricoG(b.dia, laguna);
+  if (!(teor > 0)) return { clase: 'nodata', pct: null };
+  const pct = ((Number(b.peso) - teor) / teor) * 100;
+  let clase = 'ok';
+  if (pct < -10) clase = 'bad'; else if (pct < -5) clase = 'warn';
+  return { clase, pct };
+}
+
+// Resumen de hoy: totales sumando todas las lagunas activas.
+function renderResumen() {
+  const cont = document.getElementById('resumenHoy');
+  const panel = document.getElementById('panelResumen');
+  if (!cont || !panel) return;
+  const lagunas = Storage.getLagunas();
+  if (!lagunas.length) { panel.hidden = true; return; }
+  let activas = 0, kg = 0, biomasa = 0;
+  lagunas.forEach((l) => {
+    derivarRealParaMostrar(l);
+    const r = FeedingEngine.calcularRacion(l, new Date());
+    if (!r || r.fueraDeRango) return;
+    activas++;
+    if (r.real) { kg += r.real.kgReal; biomasa += r.real.biomasaLb; }
+    else { kg += r.kgDia; biomasa += r.biomasaLb; }
+  });
+  panel.hidden = false;
+  cont.innerHTML = `
+    <div class="stat"><div class="stat-ic">🏝️</div><div class="stat-v" data-count="${activas}" data-dec="0">${activas}</div><div class="stat-l">Lagunas activas</div></div>
+    <div class="stat"><div class="stat-ic">🍽️</div><div class="stat-v" data-count="${kg.toFixed(1)}" data-dec="1" data-suf=" kg">${kg.toFixed(1)} kg</div><div class="stat-l">Kg a dar HOY (todas)</div></div>
+    <div class="stat"><div class="stat-ic">⚖️</div><div class="stat-v" data-count="${Math.round(biomasa)}" data-dec="0">${Math.round(biomasa).toLocaleString('es')}</div><div class="stat-l">Biomasa total (lb)</div></div>
+    <div class="stat"><div class="stat-ic">📦</div><div class="stat-v" data-count="${(kg / 25).toFixed(1)}" data-dec="1">${(kg / 25).toFixed(1)}</div><div class="stat-l">Sacos de 25 kg hoy</div></div>`;
+  animarNumeros(cont);
 }
 
 // Llena el filtro de zona con "Todas" + las zonas permitidas del usuario.
@@ -77,6 +176,7 @@ function poblarFiltroZona() {
 function seleccionarLaguna(id) {
   lagunaSeleccionadaId = id;
   diaVista = null; // al cambiar de laguna, volver a "hoy"
+  animarRacion = true; // efecto count-up al abrir la laguna
   renderListaLagunas();
   renderRacion();
   cargarFormulario(id);
@@ -184,6 +284,46 @@ function cambiarConsumo(pct) {
 }
 window.cambiarConsumo = cambiarConsumo;
 
+// Barra de progreso del ciclo de cultivo.
+function progresoHTML(laguna, r) {
+  const dias = Number(laguna.diasProyectados) || 0;
+  if (dias < 2) return '';
+  const pct = Math.max(0, Math.min(100, (r.diaCultivo / dias) * 100));
+  const marca = (dias > 30)
+    ? `<div class="prog-mark" style="left:${(30 / dias * 100).toFixed(1)}%"><i>Día 30 · fase</i></div>` : '';
+  return `
+    <div class="prog">
+      <div class="prog-h"><span>📏 Ciclo de cultivo</span><b>Día ${r.diaCultivo} de ${dias} · ${pct.toFixed(0)}%</b></div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${pct.toFixed(1)}%"></div>${marca}</div>
+      <div class="prog-fases"><span>Siembra</span><span>Cosecha · Día ${dias}</span></div>
+    </div>`;
+}
+
+// Comparación real vs esperado (según la última biometría medida).
+function perfHTML(laguna) {
+  const bios = (Array.isArray(laguna.biometrias) ? laguna.biometrias : [])
+    .filter((b) => (Number(b.peso) || 0) > 0).sort((a, b) => a.dia - b.dia);
+  if (!bios.length) return '';
+  const b = bios[bios.length - 1];
+  const pTeor = FeedingEngine.pesoTeoricoG(b.dia, laguna);
+  const pPct = pTeor > 0 ? ((Number(b.peso) - pTeor) / pTeor * 100) : 0;
+  const claseP = pPct < -10 ? 'bad' : (pPct < -5 ? 'mid' : 'good');
+  const flP = pPct >= 0 ? '▲ +' : '▼ ';
+  let survRow = '';
+  if (b.sobrevivencia != null && b.sobrevivencia !== '' && !isNaN(Number(b.sobrevivencia))) {
+    const sTeor = FeedingEngine.supervivenciaTeorica(b.dia, laguna) * 100;
+    const sPct = Number(b.sobrevivencia) - sTeor; // diferencia en puntos %
+    const claseS = sPct < -10 ? 'bad' : (sPct < -4 ? 'mid' : 'good');
+    const flS = sPct >= 0 ? '▲ +' : '▼ ';
+    survRow = `<div class="pf ${claseS}"><div class="pf-ico">🦐</div><div class="pf-txt"><div class="pf-t">Sobrevivencia · real vs esperada</div><div class="pf-n">${Number(b.sobrevivencia).toFixed(1)}% <span class="pf-vs">vs</span> ${sTeor.toFixed(1)}%</div></div><div class="pf-d">${flS}${Math.abs(sPct).toFixed(1)} pts</div></div>`;
+  }
+  return `
+    <div class="perf">
+      <div class="pf ${claseP}"><div class="pf-ico">📈</div><div class="pf-txt"><div class="pf-t">Crecimiento · real vs esperado (Día ${b.dia})</div><div class="pf-n">${Number(b.peso).toFixed(2)} g <span class="pf-vs">vs</span> ${pTeor.toFixed(2)} g</div></div><div class="pf-d">${flP}${Math.abs(pPct).toFixed(1)}%</div></div>
+      ${survRow}
+    </div>`;
+}
+
 function renderRacion() {
   const panel = document.getElementById('panelRacion');
   const laguna = Storage.getLaguna(lagunaSeleccionadaId);
@@ -192,6 +332,7 @@ function renderRacion() {
     return;
   }
   panel.style.display = 'block';
+  derivarRealParaMostrar(laguna);
 
   document.getElementById('infoLaguna').innerHTML = `
     <span class="dato">🏷️ <strong>${laguna.nombre}</strong></span>
@@ -218,14 +359,14 @@ function renderRacion() {
   }
 
   const suf = esHoy ? 'HOY' : `Día ${r.diaCultivo}`;
-  cont.innerHTML = nav + `
+  cont.innerHTML = nav + progresoHTML(laguna, r) + `
     <div class="ration-grid">
       <div class="ration-card destacado">
-        <div class="valor">${r.kgDia.toFixed(1)} kg</div>
+        <div class="valor" data-count="${r.kgDia.toFixed(1)}" data-dec="1" data-suf=" kg">${r.kgDia.toFixed(1)} kg</div>
         <div class="etiqueta">Ración teórica ${suf}</div>
       </div>
       <div class="ration-card destacado">
-        <div class="valor">${r.lbDia} lb</div>
+        <div class="valor" data-count="${r.lbDia}" data-dec="0" data-suf=" lb">${r.lbDia} lb</div>
         <div class="etiqueta">Ración teórica ${suf} (lb)</div>
       </div>
       <div class="ration-card">
@@ -254,9 +395,12 @@ function renderRacion() {
       </div>
     </div>
     ${r.real ? bloqueRacionReal(r.real, suf) : ''}
+    ${r.real ? perfHTML(laguna) : ''}
     ${seccionBiometriasHTML(laguna, r)}
     ${programacionHTML(laguna, r)}
   `;
+  aplicarAnimRacion(animarRacion);
+  animarRacion = false;
 }
 
 // Formulario para agregar/corregir una biometría en una fecha específica. Sirve
@@ -331,6 +475,20 @@ function sincronizarRealDesdeBiometrias(laguna) {
 // Minigráfica de datos REALES: evolución del peso y la sobrevivencia que el
 // usuario mide en campo. Cada punto es una biometría registrada. Muestra cómo
 // se ha comportado el cultivo de verdad.
+// Convierte una serie de puntos [x,y] en una curva suave (Catmull-Rom → Bézier).
+function mgSmooth(pts) {
+  if (!pts || !pts.length) return '';
+  if (pts.length < 2) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
 function miniGraficaHTML(laguna, r) {
   const bios = (Array.isArray(laguna.biometrias) ? laguna.biometrias : [])
     .filter((b) => (Number(b.peso) || 0) > 0)
@@ -347,7 +505,12 @@ function miniGraficaHTML(laguna, r) {
 
   const dias = Number(laguna.diasProyectados) || 0;
   const maxDia = Math.max(dias, bios[bios.length - 1].dia, 2);
-  const pesoMax = (Math.max.apply(null, bios.map((b) => Number(b.peso) || 0)) || 1) * 1.15;
+  const ultDiaMed = bios[bios.length - 1].dia;
+  const stepEsp = Math.max(1, Math.round(ultDiaMed / 12));
+  // pesoMax considera tanto lo real como la curva esperada en el rango medido.
+  let pesoMax = Math.max.apply(null, bios.map((b) => Number(b.peso) || 0)) || 1;
+  for (let d = 1; d <= ultDiaMed; d += stepEsp) pesoMax = Math.max(pesoMax, FeedingEngine.pesoTeoricoG(d, laguna));
+  pesoMax = Math.max(pesoMax, FeedingEngine.pesoTeoricoG(ultDiaMed, laguna)) * 1.12;
 
   const W = 680, H = 300, mL = 50, mR = 52, mT = 26, mB = 46;
   const pW = W - mL - mR, pH = H - mT - mB;
@@ -395,10 +558,38 @@ function miniGraficaHTML(laguna, r) {
     <text class="mg-txt" x="${W - mR + 6}" y="${mT + pH / 2}" text-anchor="start">50%</text>
     <text class="mg-txt" x="${W - mR + 6}" y="${mT + pH}" text-anchor="start">0%</text>`;
 
-  const lineaPeso = bios.length > 1
-    ? `<polyline fill="none" stroke="#84cc16" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" points="${puntosPeso}"/>` : '';
-  const lineaSurv = biosSurv.length > 1
-    ? `<polyline fill="none" stroke="#22d3ee" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" points="${puntosSurv}"/>` : '';
+  // Curvas suaves (bézier) para el look premium.
+  const ptsPeso = bios.map((b) => [X(b.dia), Yp(Number(b.peso))]);
+  const ptsSurv = biosSurv.map((b) => [X(b.dia), Ys(Number(b.sobrevivencia))]);
+  const dPeso = mgSmooth(ptsPeso);
+  const dSurv = mgSmooth(ptsSurv);
+
+  // Curva ESPERADA (peso teórico) sobre el rango medido, para comparar.
+  const ptsEsp = [];
+  for (let d = 1; d <= ultDiaMed; d += stepEsp) ptsEsp.push([X(d), Yp(FeedingEngine.pesoTeoricoG(d, laguna))]);
+  if (!ptsEsp.length || Math.abs(ptsEsp[ptsEsp.length - 1][0] - X(ultDiaMed)) > 0.5) {
+    ptsEsp.push([X(ultDiaMed), Yp(FeedingEngine.pesoTeoricoG(ultDiaMed, laguna))]);
+  }
+  const dEsp = mgSmooth(ptsEsp);
+
+  // Relleno degradado bajo la curva de peso real.
+  const areaPeso = (ptsPeso.length > 1)
+    ? `${dPeso} L${ptsPeso[ptsPeso.length - 1][0].toFixed(1)},${(mT + pH).toFixed(1)} L${ptsPeso[0][0].toFixed(1)},${(mT + pH).toFixed(1)} Z`
+    : '';
+
+  const defs = `<defs>
+      <linearGradient id="mgGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#84cc16" stop-opacity="0.38"/>
+        <stop offset="1" stop-color="#84cc16" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="mgGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="2.1" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>`;
+  const lineaEsp = (ptsEsp.length > 1) ? `<path d="${dEsp}" fill="none" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="5 5" opacity="0.8"/>` : '';
+  const areaFill = areaPeso ? `<path d="${areaPeso}" fill="url(#mgGrad)"/>` : '';
+  const lineaPeso = (ptsPeso.length > 1) ? `<path d="${dPeso}" fill="none" stroke="#84cc16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#mgGlow)"/>` : '';
+  const lineaSurv = (ptsSurv.length > 1) ? `<path d="${dSurv}" fill="none" stroke="#22d3ee" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#mgGlow)"/>` : '';
 
   // Lista de biometrías registradas con botón para borrar cada una.
   const lista = bios.map((b) => {
@@ -413,13 +604,15 @@ function miniGraficaHTML(laguna, r) {
   return `
     <div class="mg-wrap">
       <div class="mg-leyenda">
-        <span class="mg-item"><span class="mg-punto" style="background:#65a30d"></span>Peso real (g)</span>
-        <span class="mg-item"><span class="mg-punto" style="background:#0891b2"></span>Sobrevivencia real (%)</span>
+        <span class="mg-item"><span class="mg-punto" style="background:#84cc16"></span>Peso real (g)</span>
+        <span class="mg-item"><span class="mg-punto" style="background:#22d3ee"></span>Sobrevivencia real (%)</span>
+        <span class="mg-item"><span class="mg-punto" style="background:#94a3b8"></span>Peso esperado</span>
       </div>
       <svg class="mini-grafica" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución real de peso y sobrevivencia">
+        ${defs}
         ${grid}
         <line class="mg-axis" x1="${mL}" y1="${mT + pH}" x2="${W - mR}" y2="${mT + pH}"/>
-        ${lineaPeso}${lineaSurv}
+        ${lineaEsp}${areaFill}${lineaPeso}${lineaSurv}
         ${dotsPeso}${dotsSurv}
         ${ejes}${xlabels}
       </svg>
@@ -486,11 +679,11 @@ function bloqueRacionReal(rr, suf = 'HOY') {
     </div>
     <div class="ration-grid">
       <div class="ration-card destacado destacado-real">
-        <div class="valor">${rr.kgReal.toFixed(1)} kg</div>
+        <div class="valor" data-count="${rr.kgReal.toFixed(1)}" data-dec="1" data-suf=" kg">${rr.kgReal.toFixed(1)} kg</div>
         <div class="etiqueta">Ración a dar ${suf}${etiquetaConsumo}</div>
       </div>
       <div class="ration-card destacado destacado-real">
-        <div class="valor">${rr.lbReal} lb</div>
+        <div class="valor" data-count="${rr.lbReal}" data-dec="0" data-suf=" lb">${rr.lbReal} lb</div>
         <div class="etiqueta">Ración a dar ${suf} (lb)${etiquetaConsumo}</div>
       </div>
       <div class="ration-card">
@@ -609,6 +802,7 @@ document.getElementById('formLaguna').addEventListener('submit', (e) => {
   }
 
   lagunaSeleccionadaId = id;
+  animarRacion = true;
   renderListaLagunas();
   renderRacion();
   cargarFormulario(id);
