@@ -2,6 +2,28 @@
 
 let lagunaSeleccionadaId = null;
 
+// ============== FINCAS (cada finca tiene sus propias zonas) ==============
+// Mismo modelo que BitFeed. Las lagunas se filtran por finca para que la
+// información de una finca no se mezcle con la de otra.
+const FINCAS = {
+  GMSB:    { nombre: 'GMSB',    zonas: [1, 2, 3, 4, 5] },
+  CRIMASA: { nombre: 'CRIMASA', zonas: [1, 2, 4] },
+  CADELPA: { nombre: 'CADELPA', zonas: [1, 2] },
+  AQH:     { nombre: 'AQH',     zonas: [] },
+  SFH:     { nombre: 'SFH',     zonas: [] },
+};
+const LISTA_FINCAS = Object.keys(FINCAS);
+const FINCA_POR_DEFECTO = 'GMSB';
+const zonasDeFinca = (f) => (FINCAS[f] && FINCAS[f].zonas) || [];
+// Normaliza la finca de una laguna a una de la lista (datos antiguos → GMSB).
+const fincaDe = (l) => (l && LISTA_FINCAS.includes(l.finca)) ? l.finca : FINCA_POR_DEFECTO;
+
+let fincaActiva = FINCA_POR_DEFECTO; // finca en uso (el admin la elige; el usuario queda fijo en la suya)
+function puedeElegirFinca() { return !!(window.Perfil && window.Perfil.rol === 'admin'); }
+function fincaDelPerfil() {
+  return (window.Perfil && LISTA_FINCAS.includes(window.Perfil.finca)) ? window.Perfil.finca : FINCA_POR_DEFECTO;
+}
+
 const FIELDS = [
   'nombre', 'zona', 'finca', 'areaHa', 'fechaSiembra', 'densidad', 'sembrados',
   'tolvas', 'pesoTransferencia', 'diasProyectados', 'mortalidad1', 'mortalidad2',
@@ -10,18 +32,52 @@ const FIELDS = [
 // El peso real, la sobrevivencia real y el FCA ya NO se ingresan en el
 // formulario: provienen de la última biometría registrada en la gráfica.
 
+// Zonas que el usuario puede ver, SIEMPRE dentro de la finca activa.
+// Admin: todas las de la finca. Usuario: solo las suyas que existan en la finca.
 function zonasPermitidas() {
-  if (window.Perfil && window.Perfil.rol === 'admin') return [1, 2, 3, 4, 5];
-  if (window.Perfil && Array.isArray(window.Perfil.zonas)) return window.Perfil.zonas.slice().sort();
+  const deFinca = zonasDeFinca(fincaActiva);
+  if (window.Perfil && window.Perfil.rol === 'admin') return deFinca.slice();
+  if (window.Perfil && Array.isArray(window.Perfil.zonas)) {
+    return window.Perfil.zonas.map(Number).filter((z) => deFinca.includes(z)).sort((a, b) => a - b);
+  }
   return [];
 }
 
-function poblarSelectorZona() {
+// Llena el <select> de zona del FORMULARIO con las zonas de la finca indicada.
+function poblarSelectorZona(finca) {
   const sel = document.getElementById('zona');
   if (!sel) return;
-  const zonas = zonasPermitidas();
-  const lista = zonas.length ? zonas : [1, 2, 3, 4, 5];
-  sel.innerHTML = lista.map((z) => `<option value="${z}">Zona ${z}</option>`).join('');
+  const f = finca || (document.getElementById('finca') && document.getElementById('finca').value) || fincaActiva;
+  const zonas = zonasDeFinca(f);
+  sel.innerHTML = zonas.length
+    ? zonas.map((z) => `<option value="${z}">Zona ${z}</option>`).join('')
+    : '<option value="">— sin zonas —</option>';
+  sel.disabled = !zonas.length;
+}
+
+// Llena el <select> de finca del FORMULARIO con la lista de fincas.
+function poblarSelectorFincaForm() {
+  const sel = document.getElementById('finca');
+  if (!sel) return;
+  sel.innerHTML = LISTA_FINCAS.map((f) => `<option value="${f}">${FINCAS[f].nombre}</option>`).join('');
+}
+
+// Llena el selector de FINCA ACTIVA (arriba). Admin: todas; usuario: solo la suya.
+function poblarFiltroFinca() {
+  const sel = document.getElementById('filtroFinca');
+  const cont = document.getElementById('filtroFincaCont');
+  if (!sel) return;
+  if (puedeElegirFinca()) {
+    sel.innerHTML = LISTA_FINCAS.map((f) => `<option value="${f}">${FINCAS[f].nombre}</option>`).join('');
+    sel.disabled = false;
+  } else {
+    const f = fincaDelPerfil();
+    sel.innerHTML = `<option value="${f}">${FINCAS[f].nombre}</option>`;
+    sel.disabled = true;
+  }
+  if (!LISTA_FINCAS.includes(fincaActiva)) fincaActiva = FINCA_POR_DEFECTO;
+  sel.value = fincaActiva;
+  if (cont) cont.style.display = 'flex';
 }
 
 let zonaFiltro = 'todas';
@@ -77,6 +133,8 @@ function renderListaLagunas() {
   const vacio = document.getElementById('sinLagunas');
   cont.innerHTML = '';
 
+  // Filtrar SIEMPRE por finca activa (no se mezclan datos entre fincas).
+  lagunas = lagunas.filter((l) => fincaDe(l) === fincaActiva);
   // Filtrar por zona seleccionada
   if (zonaFiltro !== 'todas') {
     lagunas = lagunas.filter((l) => String(l.zona) === String(zonaFiltro));
@@ -87,9 +145,17 @@ function renderListaLagunas() {
   );
 
   vacio.style.display = lagunas.length ? 'none' : 'block';
-  vacio.innerHTML = (zonaFiltro !== 'todas' && Storage.getLagunas().length)
-    ? 'No hay lagunas en esta zona.'
-    : 'Aún no has registrado ninguna laguna. Toca <strong>➕ Nueva laguna</strong> para crear la primera.';
+  if (!lagunas.length) {
+    const totalGlobal = Storage.getLagunas().length;
+    const enFinca = Storage.getLagunas().filter((l) => fincaDe(l) === fincaActiva).length;
+    if (zonaFiltro !== 'todas' && enFinca) {
+      vacio.innerHTML = 'No hay lagunas en esta zona.';
+    } else if (totalGlobal && !enFinca) {
+      vacio.innerHTML = `No hay lagunas en la finca <strong>${fincaActiva}</strong>. Toca <strong>➕ Nueva laguna</strong> para crear una aquí.`;
+    } else {
+      vacio.innerHTML = 'Aún no has registrado ninguna laguna. Toca <strong>➕ Nueva laguna</strong> para crear la primera.';
+    }
+  }
 
   lagunas.forEach((l) => {
     const chip = document.createElement('button');
@@ -140,7 +206,8 @@ function renderResumen() {
   const cont = document.getElementById('resumenHoy');
   const panel = document.getElementById('panelResumen');
   if (!cont || !panel) return;
-  const lagunas = Storage.getLagunas();
+  // Solo la finca activa (no se mezclan totales entre fincas).
+  const lagunas = Storage.getLagunas().filter((l) => fincaDe(l) === fincaActiva);
   if (!lagunas.length) { panel.hidden = true; return; }
   let activas = 0, kg = 0, biomasa = 0;
   lagunas.forEach((l) => {
@@ -735,14 +802,28 @@ function cargarFormulario(id) {
   const laguna = Storage.getLaguna(id);
   document.getElementById('tituloFormulario').textContent = laguna ? `Editar laguna: ${laguna.nombre}` : 'Nueva laguna';
   document.getElementById('lagunaId').value = laguna ? laguna.id : '';
+  // Campos normales (finca y zona se manejan aparte porque dependen entre sí).
   FIELDS.forEach((f) => {
+    if (f === 'finca' || f === 'zona') return;
     const elc = document.getElementById(f);
+    if (!elc) return;
     if (elc.tagName === 'SELECT') {
-      elc.value = laguna && laguna[f] != null ? String(laguna[f]) : (zonasPermitidas()[0] || 1);
+      elc.value = laguna && laguna[f] != null ? String(laguna[f]) : '';
     } else {
       elc.value = laguna ? (laguna[f] ?? '') : elc.defaultValue;
     }
   });
+  // Finca: lista desplegable. Nueva laguna → finca activa. Editar → su finca.
+  poblarSelectorFincaForm();
+  const fincaSel = laguna ? fincaDe(laguna) : fincaActiva;
+  document.getElementById('finca').value = fincaSel;
+  // Zona: depende de la finca elegida.
+  poblarSelectorZona(fincaSel);
+  const zonaEl = document.getElementById('zona');
+  const zonaSel = laguna && laguna.zona != null ? String(laguna.zona) : '';
+  if (zonaSel && Array.from(zonaEl.options).some((o) => o.value === zonaSel)) {
+    zonaEl.value = zonaSel;
+  }
   document.getElementById('btnCancelarEdicion').style.display = laguna ? 'inline-block' : 'none';
   document.getElementById('btnEliminar').style.display = laguna ? 'inline-block' : 'none';
 }
@@ -751,6 +832,10 @@ function limpiarFormulario() {
   document.getElementById('formLaguna').reset();
   document.getElementById('lagunaId').value = '';
   document.getElementById('tituloFormulario').textContent = 'Nueva laguna';
+  // Nueva laguna: se crea en la finca activa, con las zonas de esa finca.
+  poblarSelectorFincaForm();
+  document.getElementById('finca').value = fincaActiva;
+  poblarSelectorZona(fincaActiva);
   document.getElementById('btnCancelarEdicion').style.display = 'none';
   document.getElementById('btnEliminar').style.display = 'none';
 }
@@ -872,6 +957,22 @@ function recalcularSembrados() {
 document.getElementById('areaHa').addEventListener('input', recalcularSembrados);
 document.getElementById('densidad').addEventListener('input', recalcularSembrados);
 
+// Al cambiar la finca en el formulario, se recargan sus zonas.
+document.getElementById('finca').addEventListener('change', (e) => {
+  poblarSelectorZona(e.target.value);
+});
+
+// Selector de finca activa (arriba): cambia la finca en uso y refresca todo.
+document.getElementById('filtroFinca').addEventListener('change', (e) => {
+  fincaActiva = e.target.value;
+  zonaFiltro = 'todas';
+  lagunaSeleccionadaId = null; // al cambiar de finca, se deselecciona la laguna
+  poblarFiltroZona();
+  poblarSelectorFincaForm();
+  renderListaLagunas();
+  renderRacion();
+});
+
 document.getElementById('btnExportar').addEventListener('click', () => Storage.exportarJSON());
 
 document.getElementById('btnImportar').addEventListener('click', () => {
@@ -971,6 +1072,9 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 const esAdmin = () => window.Perfil && window.Perfil.rol === 'admin';
 
 async function alIniciarSesion() {
+  // Finca inicial: el admin arranca en GMSB (puede cambiar); el usuario queda en la suya.
+  fincaActiva = puedeElegirFinca() ? FINCA_POR_DEFECTO : fincaDelPerfil();
+  poblarFiltroFinca();
   poblarSelectorZona();
   poblarFiltroZona();
   renderListaLagunas();
@@ -983,6 +1087,7 @@ async function alIniciarSesion() {
     await Storage.syncFromCloud();
   }
 
+  poblarFiltroFinca();
   poblarSelectorZona();
   poblarFiltroZona();
   renderListaLagunas();
