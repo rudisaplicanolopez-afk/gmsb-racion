@@ -45,13 +45,17 @@ function deleteLaguna(id) {
 }
 
 /* ---------- Sincronización con la nube ---------- */
+const FINCAS_VALIDAS = ['GMSB', 'CRIMASA', 'CADELPA', 'AQH', 'SFH'];
+
 async function pushLagunaNube(laguna) {
   if (!window.sb) return;
   try {
     const zona = Number(laguna.zona) || null;
+    const finca = FINCAS_VALIDAS.includes(laguna.finca) ? laguna.finca : 'GMSB';
     await window.sb.from(TABLA).upsert({
       id: laguna.id,
       zona: zona,
+      finca: finca, // columna para el candado por finca (RLS)
       datos: laguna,
       updated_at: new Date().toISOString(),
     });
@@ -110,9 +114,11 @@ async function listarPerfiles() {
   return data || [];
 }
 
-async function guardarPerfil(id, rol, zonas) {
+async function guardarPerfil(id, rol, zonas, finca) {
   if (!window.sb) return { ok: false };
-  const { error } = await window.sb.from('perfiles').update({ rol, zonas }).eq('id', id);
+  const cambios = { rol, zonas };
+  if (finca !== undefined) cambios.finca = FINCAS_VALIDAS.includes(finca) ? finca : 'GMSB';
+  const { error } = await window.sb.from('perfiles').update(cambios).eq('id', id);
   return { ok: !error, error: error ? error.message : null };
 }
 

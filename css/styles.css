@@ -818,3 +818,8 @@ body::before {
 .filtro-finca label{color:var(--texto)}
 .filtro-finca select{border-color:var(--verde-500);color:var(--card-info-valor);font-weight:700}
 .filtro-finca select:disabled{opacity:1;cursor:default}
+
+/* Panel admin: selects de rol + finca por usuario */
+.usuario-selects{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.35rem}
+.finca-select{border-color:var(--verde-500)!important;color:var(--card-info-valor);font-weight:700}
+.zona-nota{font-size:.78rem;color:var(--texto-suave);font-style:italic}

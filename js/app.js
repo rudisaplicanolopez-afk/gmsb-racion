@@ -1142,36 +1142,58 @@ async function renderPanelAdmin() {
   actualizarBtnUsuarios(perfiles.length);
 
   cont.innerHTML = perfiles.map((p) => {
-    const zonas = Array.isArray(p.zonas) ? p.zonas : [];
-    const checks = [1, 2, 3, 4, 5].map((z) =>
-      `<label class="zona-check"><input type="checkbox" data-uid="${p.id}" data-zona="${z}" ${zonas.includes(z) ? 'checked' : ''}/> Z${z}</label>`
-    ).join('');
+    const zonas = Array.isArray(p.zonas) ? p.zonas.map(Number) : [];
+    const fincaSel = LISTA_FINCAS.includes(p.finca) ? p.finca : FINCA_POR_DEFECTO;
+    const fincaOpts = LISTA_FINCAS.map((f) => `<option value="${f}" ${f === fincaSel ? 'selected' : ''}>${FINCAS[f].nombre}</option>`).join('');
     return `
       <div class="usuario-fila" data-uid="${p.id}">
         <div class="usuario-info">
           <strong>${p.email || '(sin correo)'}</strong>
-          <select data-rol="${p.id}" class="rol-select">
-            <option value="usuario" ${p.rol === 'usuario' ? 'selected' : ''}>Usuario</option>
-            <option value="admin" ${p.rol === 'admin' ? 'selected' : ''}>Administrador</option>
-          </select>
+          <div class="usuario-selects">
+            <select data-rol="${p.id}" class="rol-select">
+              <option value="usuario" ${p.rol === 'usuario' ? 'selected' : ''}>Usuario</option>
+              <option value="admin" ${p.rol === 'admin' ? 'selected' : ''}>Administrador</option>
+            </select>
+            <select data-finca="${p.id}" class="rol-select finca-select">${fincaOpts}</select>
+          </div>
         </div>
-        <div class="zonas-checks">${checks}</div>
+        <div class="zonas-checks" data-zonas-uid="${p.id}">${zonaChecksHTML(p.id, fincaSel, zonas)}</div>
         <button class="btn btn--primario btn-guardar-perfil" data-uid="${p.id}">Guardar</button>
       </div>`;
   }).join('');
+
+  // Al cambiar la finca de un usuario, se recargan sus zonas (las de esa finca).
+  cont.querySelectorAll('select[data-finca]').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const uid = sel.dataset.finca;
+      const marcadas = Array.from(cont.querySelectorAll(`input[data-uid="${uid}"]:checked`)).map((c) => Number(c.dataset.zona));
+      const cont2 = cont.querySelector(`div[data-zonas-uid="${uid}"]`);
+      if (cont2) cont2.innerHTML = zonaChecksHTML(uid, sel.value, marcadas);
+    });
+  });
 
   cont.querySelectorAll('.btn-guardar-perfil').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const uid = btn.dataset.uid;
       const rol = cont.querySelector(`select[data-rol="${uid}"]`).value;
+      const finca = cont.querySelector(`select[data-finca="${uid}"]`).value;
       const zonas = Array.from(cont.querySelectorAll(`input[data-uid="${uid}"]:checked`)).map((c) => Number(c.dataset.zona));
       btn.textContent = 'Guardando…';
-      const r = await Storage.guardarPerfil(uid, rol, zonas);
+      const r = await Storage.guardarPerfil(uid, rol, zonas, finca);
       btn.textContent = 'Guardar';
       if (r.ok) mostrarConfirmacion('Perfil actualizado.');
       else alert('No se pudo guardar: ' + (r.error || ''));
     });
   });
+}
+
+// Checkboxes de zona para un usuario, según las zonas de la finca elegida.
+function zonaChecksHTML(uid, finca, zonasSel) {
+  const zonas = zonasDeFinca(finca);
+  if (!zonas.length) return '<span class="zona-nota">Esta finca no usa zonas</span>';
+  return zonas.map((z) =>
+    `<label class="zona-check"><input type="checkbox" data-uid="${uid}" data-zona="${z}" ${zonasSel.includes(z) ? 'checked' : ''}/> Z${z}</label>`
+  ).join('');
 }
 
 Auth.init(alIniciarSesion, alCerrarSesion);
