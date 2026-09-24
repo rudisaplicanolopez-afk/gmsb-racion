@@ -855,6 +855,19 @@ document.getElementById('btnEditarLaguna').addEventListener('click', () => {
 });
 document.getElementById('btnCerrarFormulario').addEventListener('click', cerrarFormulario);
 
+// Cálculo automático de Sembrados (PL) = Área (Ha) × 10,000 m² × Densidad (PL/m²).
+// Se recalcula al escribir el área o la densidad. El campo sigue siendo editable
+// por si quieres ajustarlo a mano después.
+function recalcularSembrados() {
+  const area = parseFloat(document.getElementById('areaHa').value) || 0;
+  const dens = parseFloat(document.getElementById('densidad').value) || 0;
+  if (area > 0 && dens > 0) {
+    document.getElementById('sembrados').value = Math.round(area * 10000 * dens);
+  }
+}
+document.getElementById('areaHa').addEventListener('input', recalcularSembrados);
+document.getElementById('densidad').addEventListener('input', recalcularSembrados);
+
 document.getElementById('btnExportar').addEventListener('click', () => Storage.exportarJSON());
 
 document.getElementById('btnImportar').addEventListener('click', () => {
