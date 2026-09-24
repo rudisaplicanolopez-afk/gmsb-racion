@@ -139,6 +139,9 @@ function calcularRacion(laguna, fechaReferencia = new Date(), diaForzado = null)
     const factor = consumoPct / 100;
     const kgReal = ((biomasaRealLb * taReal) / KG_PER_LB) * factor;
     const lbReal = Math.floor(kgReal * KG_PER_LB);
+    // Animales por tolva = (sembrados × sobrevivencia real) ÷ nº de tolvas.
+    const tolvas = Number(laguna.tolvas) || 0;
+    const animalesVivos = sembrados * survReal;
     r.real = {
       pesoReal,
       supervivenciaPct: survReal * 100,
@@ -151,6 +154,9 @@ function calcularRacion(laguna, fechaReferencia = new Date(), diaForzado = null)
       biomasaLb: biomasaRealLb,
       fca: Number(laguna.fca) || null, // solo informativo, no afecta la ración
       consumoPct,
+      tolvas,
+      animalesVivos,
+      animalesPorTolva: tolvas > 0 ? animalesVivos / tolvas : null,
     };
   }
 

@@ -4,7 +4,7 @@ let lagunaSeleccionadaId = null;
 
 const FIELDS = [
   'nombre', 'zona', 'finca', 'areaHa', 'fechaSiembra', 'densidad', 'sembrados',
-  'pesoTransferencia', 'diasProyectados', 'mortalidad1', 'mortalidad2',
+  'tolvas', 'pesoTransferencia', 'diasProyectados', 'mortalidad1', 'mortalidad2',
   'ta30', 'tc30',
 ];
 // El peso real, la sobrevivencia real y el FCA ya NO se ingresan en el
@@ -714,6 +714,10 @@ function bloqueRacionReal(rr, suf = 'HOY') {
         <div class="valor">${rr.sacos25kg.toFixed(2)}</div>
         <div class="etiqueta">Sacos de 25 kg</div>
       </div>
+      ${rr.animalesPorTolva != null ? `<div class="ration-card ration-card--tolva">
+        <div class="valor">${Math.round(rr.animalesPorTolva).toLocaleString('es')}</div>
+        <div class="etiqueta">🦐 Animales por tolva (${rr.tolvas} tolvas)</div>
+      </div>` : ''}
     </div>
   `;
 }
