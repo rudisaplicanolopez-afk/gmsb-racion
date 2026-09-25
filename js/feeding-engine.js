@@ -104,8 +104,14 @@ function calcularRacion(laguna, fechaReferencia = new Date(), diaForzado = null)
   const sembrados = Number(laguna.sembrados) || 0;
   const areaHa = Number(laguna.areaHa) || 0;
 
+  // Factor de consumo (triángulo de arrastre): 100/75/50/25/0 %. Ahora ajusta
+  // TANTO la ración teórica como la real. Por defecto 100%.
+  const consumoPct = (laguna.consumoPct !== undefined && laguna.consumoPct !== '' && laguna.consumoPct !== null)
+    ? Number(laguna.consumoPct) : 100;
+  const factor = consumoPct / 100;
+
   const biomasaLb = (sembrados * supervivencia * pesoG) / G_PER_LB;
-  const kgDia = (biomasaLb * ta) / KG_PER_LB;
+  const kgDia = ((biomasaLb * ta) / KG_PER_LB) * factor;
   const lbDia = Math.floor(kgDia * KG_PER_LB);
   const lbHaDia = areaHa > 0 ? (lbDia / areaHa) : 0;
   const sacos25kg = kgDia / 25;
@@ -121,6 +127,7 @@ function calcularRacion(laguna, fechaReferencia = new Date(), diaForzado = null)
     lbDia,
     lbHaDia,
     sacos25kg,
+    consumoPct,
   };
 
   // Ración REAL: si el usuario registró un peso real, se calcula la ración con
@@ -132,11 +139,6 @@ function calcularRacion(laguna, fechaReferencia = new Date(), diaForzado = null)
     const survReal = survRealPct > 0 ? survRealPct / 100 : supervivencia;
     const taReal = porcentajeTA(pesoReal, laguna);
     const biomasaRealLb = (sembrados * survReal * pesoReal) / G_PER_LB;
-    // Factor de consumo (triángulo de arrastre): 100/75/50/25/0 %. Ajusta la
-    // ración real a aplicar. Por defecto 100%.
-    const consumoPct = (laguna.consumoPct !== undefined && laguna.consumoPct !== '' && laguna.consumoPct !== null)
-      ? Number(laguna.consumoPct) : 100;
-    const factor = consumoPct / 100;
     const kgReal = ((biomasaRealLb * taReal) / KG_PER_LB) * factor;
     const lbReal = Math.floor(kgReal * KG_PER_LB);
     // Animales por tolva = (sembrados × sobrevivencia real) ÷ nº de tolvas.

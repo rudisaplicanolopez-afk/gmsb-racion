@@ -426,15 +426,16 @@ function renderRacion() {
   }
 
   const suf = esHoy ? 'HOY' : `Día ${r.diaCultivo}`;
+  const etConsumo = (r.consumoPct === 100) ? '' : ` · al ${r.consumoPct}%`;
   cont.innerHTML = nav + progresoHTML(laguna, r) + `
     <div class="ration-grid">
       <div class="ration-card destacado">
         <div class="valor" data-count="${r.kgDia.toFixed(1)}" data-dec="1" data-suf=" kg">${r.kgDia.toFixed(1)} kg</div>
-        <div class="etiqueta">Ración teórica ${suf}</div>
+        <div class="etiqueta">Ración teórica ${suf}${etConsumo}</div>
       </div>
       <div class="ration-card destacado">
         <div class="valor" data-count="${r.lbDia}" data-dec="0" data-suf=" lb">${r.lbDia} lb</div>
-        <div class="etiqueta">Ración teórica ${suf} (lb)</div>
+        <div class="etiqueta">Ración teórica ${suf} (lb)${etConsumo}</div>
       </div>
       <div class="ration-card">
         <div class="valor">${r.diaCultivo}</div>
