@@ -823,3 +823,6 @@ body::before {
 .usuario-selects{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.35rem}
 .finca-select{border-color:var(--verde-500)!important;color:var(--card-info-valor);font-weight:700}
 .zona-nota{font-size:.78rem;color:var(--texto-suave);font-style:italic}
+
+/* Con una sola tarjeta de resumen, que no se estire a todo el ancho */
+.resumen-grid{grid-template-columns:repeat(auto-fill,minmax(160px,240px))}

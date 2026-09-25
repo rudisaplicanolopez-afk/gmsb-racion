@@ -209,21 +209,14 @@ function renderResumen() {
   // Solo la finca activa (no se mezclan totales entre fincas).
   const lagunas = Storage.getLagunas().filter((l) => fincaDe(l) === fincaActiva);
   if (!lagunas.length) { panel.hidden = true; return; }
-  let activas = 0, kg = 0, biomasa = 0;
+  let activas = 0;
   lagunas.forEach((l) => {
-    derivarRealParaMostrar(l);
     const r = FeedingEngine.calcularRacion(l, new Date());
-    if (!r || r.fueraDeRango) return;
-    activas++;
-    if (r.real) { kg += r.real.kgReal; biomasa += r.real.biomasaLb; }
-    else { kg += r.kgDia; biomasa += r.biomasaLb; }
+    if (r && !r.fueraDeRango) activas++;
   });
   panel.hidden = false;
   cont.innerHTML = `
-    <div class="stat"><div class="stat-ic">🏝️</div><div class="stat-v" data-count="${activas}" data-dec="0">${activas}</div><div class="stat-l">Lagunas activas</div></div>
-    <div class="stat"><div class="stat-ic">🍽️</div><div class="stat-v" data-count="${kg.toFixed(1)}" data-dec="1" data-suf=" kg">${kg.toFixed(1)} kg</div><div class="stat-l">Kg a dar HOY (todas)</div></div>
-    <div class="stat"><div class="stat-ic">⚖️</div><div class="stat-v" data-count="${Math.round(biomasa)}" data-dec="0">${Math.round(biomasa).toLocaleString('es')}</div><div class="stat-l">Biomasa total (lb)</div></div>
-    <div class="stat"><div class="stat-ic">📦</div><div class="stat-v" data-count="${(kg / 25).toFixed(1)}" data-dec="1">${(kg / 25).toFixed(1)}</div><div class="stat-l">Sacos de 25 kg hoy</div></div>`;
+    <div class="stat"><div class="stat-ic">🦐</div><div class="stat-v" data-count="${activas}" data-dec="0">${activas}</div><div class="stat-l">en cultivo hoy</div></div>`;
   animarNumeros(cont);
 }
 
