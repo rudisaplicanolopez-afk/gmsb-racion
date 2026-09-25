@@ -974,6 +974,34 @@ document.getElementById('filtroFinca').addEventListener('change', (e) => {
   renderRacion();
 });
 
+// Botón "Actualizar": trae los datos más recientes de la nube y refresca la
+// vista, sin tener que cerrar la app.
+async function refrescarDatos() {
+  const btn = document.getElementById('btnRefrescar');
+  const original = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Actualizando…'; }
+  try {
+    const res = await Storage.syncFromCloud();
+    poblarFiltroFinca();
+    poblarSelectorZona();
+    poblarFiltroZona();
+    renderListaLagunas();
+    if (lagunaSeleccionadaId && !Storage.getLaguna(lagunaSeleccionadaId)) {
+      lagunaSeleccionadaId = null;
+    }
+    renderRacion();
+    if (esAdmin() && !document.getElementById('panelAdmin').hidden) renderPanelAdmin();
+    mostrarConfirmacion((res && res.ok)
+      ? 'Datos actualizados desde la nube.'
+      : 'Sin conexión: se muestran los datos guardados.');
+  } catch (e) {
+    mostrarConfirmacion('No se pudo actualizar. Revisa tu conexión.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = original || '🔄 Actualizar'; }
+  }
+}
+document.getElementById('btnRefrescar').addEventListener('click', refrescarDatos);
+
 document.getElementById('btnExportar').addEventListener('click', () => Storage.exportarJSON());
 
 document.getElementById('btnImportar').addEventListener('click', () => {
