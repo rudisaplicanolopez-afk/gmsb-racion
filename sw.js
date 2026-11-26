@@ -1,5 +1,5 @@
 /* Service Worker — caché del app shell para uso offline e instalación PWA. */
-const CACHE = 'gmsb-racion-v30';
+const CACHE = 'gmsb-racion-v32';
 const ASSETS = [
   './',
   './index.html',
@@ -21,8 +21,10 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
+    // Solo borra cachés viejas de ESTA app (prefijo), para no borrar la de
+    // la versión de prueba (/preview/), que vive en el mismo dominio.
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k.startsWith('gmsb-racion-') && k !== CACHE).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });

@@ -157,7 +157,14 @@
         <h3>Tasas de crecimiento y alimentación</h3>
         <p>Copia el % tal como aparece en tu Excel (TA 30 días y TC 30 días). El ajuste de la curva se calcula solo según el peso de transferencia.</p>
         <div class="form-grid">
-          <div class="campo"><label>TA — Tasa de alimentación (%)</label><input type="number" step="any" id="ta30" value="200" /></div>
+          <div class="campo">
+            <label>Tabla de referencia de alimentación</label>
+            <select id="tablaRef">
+              <option value="nicovita">Nicovita (% de la biomasa)</option>
+              <option value="aqh_gramo">AQH (g por camarón al día)</option>
+            </select>
+          </div>
+          <div class="campo" id="campoTa30"><label>TA — Tasa de alimentación (%)</label><input type="number" step="any" id="ta30" value="200" /></div>
           <div class="campo"><label>TC — Tasa de crecimiento (%)</label><input type="number" step="any" id="tc30" value="230" /></div>
         </div>
       </div>

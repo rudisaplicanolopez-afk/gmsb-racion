@@ -10,6 +10,70 @@ const EXP_PESO = 1.3758;
 const K_TA = 4.2847;
 const EXP_TA = -0.2869;
 
+// ============== TABLAS DE REFERENCIA DE ALIMENTACIÓN ==============
+// 'nicovita' : % de la biomasa según la curva Nicovita (usa TA30). Es la de siempre.
+// 'aqh_gramo': gramos de alimento por camarón al día según su peso (hoja
+//              "Consumo" del Excel TABLA AQH). kg/día = camarones × g ÷ 454 ÷ 2.2,
+//              igual que la fórmula del Excel.
+// En ambas el peso TEÓRICO sale de la curva de crecimiento (TC30); la tabla
+// solo cambia CUÁNTO alimento se da para ese peso.
+const TABLA_POR_DEFECTO = 'nicovita';
+const TABLAS_REFERENCIA = {
+  nicovita:  { nombre: 'Nicovita (% biomasa)' },
+  aqh_gramo: {
+    nombre: 'AQH (g por camarón)',
+    // [peso del camarón (g), g de alimento por camarón al día]
+    puntos: [
+      [0.5, 0.03], [1, 0.06], [1.5, 0.08], [2, 0.14], [2.5, 0.16], [3, 0.2],
+      [3.5, 0.25], [4, 0.26], [4.5, 0.28], [5, 0.29], [5.5, 0.31], [6, 0.33],
+      [6.5, 0.35], [7, 0.37], [7.5, 0.39], [8, 0.41], [8.5, 0.42], [9, 0.43],
+      [9.5, 0.44], [10, 0.45], [10.5, 0.46], [11, 0.47], [11.5, 0.48], [12, 0.49],
+      [12.5, 0.51], [13, 0.52], [13.5, 0.54], [14, 0.56], [14.5, 0.58], [15, 0.59],
+      [15.5, 0.6], [16, 0.61], [16.5, 0.61], [17, 0.61], [17.5, 0.61], [18, 0.61],
+      [19, 0.61], [20, 0.61], [21, 0.61], [22, 0.61],
+    ],
+  },
+};
+
+function tablaDe(laguna) {
+  const t = laguna && laguna.tablaRef;
+  return TABLAS_REFERENCIA[t] ? t : TABLA_POR_DEFECTO;
+}
+
+// g de alimento por camarón al día para un peso. En los pesos de la tabla da
+// exactamente el valor del Excel; entre dos filas interpola en línea recta
+// (el BUSCARV exacto del Excel daría error con pesos como 12.3 g). Fuera del
+// rango se usa el primer / último valor.
+function gramosPorCamaron(pesoG, tabla = 'aqh_gramo') {
+  const pts = TABLAS_REFERENCIA[tabla] && TABLAS_REFERENCIA[tabla].puntos;
+  if (!pts || !(pesoG > 0)) return 0;
+  if (pesoG <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) {
+    const [x1, y1] = pts[i];
+    if (pesoG <= x1) {
+      const [x0, y0] = pts[i - 1];
+      return y0 + (y1 - y0) * (pesoG - x0) / (x1 - x0);
+    }
+  }
+  return pts[pts.length - 1][1];
+}
+
+// Ración (kg/día, sin factor de consumo) según la tabla de la laguna.
+// Devuelve también la tasa como fracción de la biomasa para mostrarla.
+function racionBase(animales, pesoG, laguna) {
+  if (tablaDe(laguna) === 'aqh_gramo') {
+    const gCam = gramosPorCamaron(pesoG);
+    return {
+      kg: (animales * gCam) / G_PER_LB / 2.2, // misma fórmula del Excel AQH
+      ta: pesoG > 0 ? gCam / pesoG : 0,
+      gCamDia: gCam,
+    };
+  }
+  const ta = porcentajeTA(pesoG, laguna);
+  const biomasaLb = (animales * pesoG) / G_PER_LB;
+  return { kg: (biomasaLb * ta) / KG_PER_LB, ta, gCamDia: null };
+}
+
 // TC30 y TA30 se ingresan como porcentaje (ej. 230% se escribe "230").
 function tc30Frac(laguna) { return (Number(laguna.tc30) || 0) / 100; }
 function ta30Frac(laguna) { return (Number(laguna.ta30) || 0) / 100; }
@@ -100,8 +164,10 @@ function calcularRacion(laguna, fechaReferencia = new Date(), diaForzado = null)
 
   const pesoG = pesoTeoricoG(diaCultivo, laguna);
   const supervivencia = supervivenciaTeorica(diaCultivo, laguna);
-  const ta = porcentajeTA(pesoG, laguna);
   const sembrados = Number(laguna.sembrados) || 0;
+  const tablaRef = tablaDe(laguna);
+  const base = racionBase(sembrados * supervivencia, pesoG, laguna);
+  const ta = base.ta;
   const areaHa = Number(laguna.areaHa) || 0;
 
   // Factor de consumo (triángulo de arrastre): 100/75/50/25/0 %. Ahora ajusta
@@ -111,7 +177,7 @@ function calcularRacion(laguna, fechaReferencia = new Date(), diaForzado = null)
   const factor = consumoPct / 100;
 
   const biomasaLb = (sembrados * supervivencia * pesoG) / G_PER_LB;
-  const kgDia = ((biomasaLb * ta) / KG_PER_LB) * factor;
+  const kgDia = base.kg * factor;
   const lbDia = Math.floor(kgDia * KG_PER_LB);
   const lbHaDia = areaHa > 0 ? (lbDia / areaHa) : 0;
   const sacos25kg = kgDia / 25;
@@ -128,6 +194,8 @@ function calcularRacion(laguna, fechaReferencia = new Date(), diaForzado = null)
     lbHaDia,
     sacos25kg,
     consumoPct,
+    tablaRef,
+    gCamDia: base.gCamDia, // solo con la tabla por gramo
   };
 
   // Ración REAL: si el usuario registró un peso real, se calcula la ración con
@@ -137,9 +205,10 @@ function calcularRacion(laguna, fechaReferencia = new Date(), diaForzado = null)
   if (pesoReal > 0) {
     const survRealPct = Number(laguna.supervivenciaReal) || 0;
     const survReal = survRealPct > 0 ? survRealPct / 100 : supervivencia;
-    const taReal = porcentajeTA(pesoReal, laguna);
+    const baseReal = racionBase(sembrados * survReal, pesoReal, laguna);
+    const taReal = baseReal.ta;
     const biomasaRealLb = (sembrados * survReal * pesoReal) / G_PER_LB;
-    const kgReal = ((biomasaRealLb * taReal) / KG_PER_LB) * factor;
+    const kgReal = baseReal.kg * factor;
     const lbReal = Math.floor(kgReal * KG_PER_LB);
     // Animales por tolva = (sembrados × sobrevivencia real) ÷ nº de tolvas.
     const tolvas = Number(laguna.tolvas) || 0;
@@ -156,6 +225,8 @@ function calcularRacion(laguna, fechaReferencia = new Date(), diaForzado = null)
       biomasaLb: biomasaRealLb,
       fca: Number(laguna.fca) || null, // solo informativo, no afecta la ración
       consumoPct,
+      tablaRef,
+      gCamDia: baseReal.gCamDia,
       tolvas,
       animalesVivos,
       animalesPorTolva: tolvas > 0 ? animalesVivos / tolvas : null,
@@ -171,4 +242,8 @@ window.FeedingEngine = {
   pesoTeoricoG,
   porcentajeTA,
   supervivenciaTeorica,
+  gramosPorCamaron,
+  tablaDe,
+  TABLAS_REFERENCIA,
+  TABLA_POR_DEFECTO,
 };

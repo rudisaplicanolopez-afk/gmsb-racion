@@ -27,8 +27,33 @@ function fincaDelPerfil() {
 const FIELDS = [
   'nombre', 'zona', 'finca', 'areaHa', 'fechaSiembra', 'densidad', 'sembrados',
   'tolvas', 'pesoTransferencia', 'diasProyectados', 'mortalidad1', 'mortalidad2',
-  'ta30', 'tc30',
+  'ta30', 'tc30', 'tablaRef',
 ];
+
+// Tabla por defecto al crear una laguna: AQH usa su tabla por gramo; las demás, Nicovita.
+function tablaPorDefectoDeFinca(finca) {
+  return finca === 'AQH' ? 'aqh_gramo' : FeedingEngine.TABLA_POR_DEFECTO;
+}
+// Con la tabla por gramo el TA no se usa (sí el TC, que da el peso teórico).
+function actualizarCampoTa() {
+  const sel = document.getElementById('tablaRef');
+  const campo = document.getElementById('campoTa30');
+  // style.display (no el atributo hidden): el CSS de .campo le gana a [hidden].
+  if (sel && campo) campo.style.display = sel.value === 'aqh_gramo' ? 'none' : '';
+}
+// Tarjeta de la tasa: % para Nicovita; g por camarón (y su % equivalente) para AQH.
+function tarjetaTasaHTML(x) {
+  if (x.tablaRef === 'aqh_gramo') {
+    return `<div class="ration-card">
+        <div class="valor">${x.gCamDia.toFixed(2)} g</div>
+        <div class="etiqueta">Alimento por camarón / día · ${x.taPct.toFixed(2)}% biomasa</div>
+      </div>`;
+  }
+  return `<div class="ration-card">
+        <div class="valor">${x.taPct.toFixed(2)}%</div>
+        <div class="etiqueta">% Tasa de alimentación</div>
+      </div>`;
+}
 // El peso real, la sobrevivencia real y el FCA ya NO se ingresan en el
 // formulario: provienen de la última biometría registrada en la gráfica.
 
@@ -401,6 +426,7 @@ function renderRacion() {
     <span class="dato">📐 ${laguna.areaHa || '-'} Ha</span>
     <span class="dato">🦐 ${Number(laguna.sembrados || 0).toLocaleString()} PL</span>
     <span class="dato">📅 Siembra: ${laguna.fechaSiembra}</span>
+    <span class="dato">📊 Tabla: ${FeedingEngine.TABLAS_REFERENCIA[FeedingEngine.tablaDe(laguna)].nombre}</span>
   `;
 
   const diasProyec = Number(laguna.diasProyectados) || 0;
@@ -442,10 +468,7 @@ function renderRacion() {
         <div class="valor">${r.lbHaDia.toFixed(1)}</div>
         <div class="etiqueta">Lbs / Ha del día</div>
       </div>
-      <div class="ration-card">
-        <div class="valor">${r.taPct.toFixed(2)}%</div>
-        <div class="etiqueta">% Tasa de alimentación</div>
-      </div>
+      ${tarjetaTasaHTML(r)}
       <div class="ration-card">
         <div class="valor">${r.supervivenciaPct.toFixed(1)}%</div>
         <div class="etiqueta">Supervivencia teórica</div>
@@ -767,10 +790,7 @@ function bloqueRacionReal(rr, suf = 'HOY') {
         <div class="valor">${rr.lbHaReal.toFixed(1)}</div>
         <div class="etiqueta">Lbs / Ha del día</div>
       </div>
-      <div class="ration-card">
-        <div class="valor">${rr.taPct.toFixed(2)}%</div>
-        <div class="etiqueta">% Tasa de alimentación</div>
-      </div>
+      ${tarjetaTasaHTML(rr)}
       <div class="ration-card">
         <div class="valor">${rr.sacos25kg.toFixed(2)}</div>
         <div class="etiqueta">Sacos de 25 kg</div>
@@ -818,6 +838,10 @@ function cargarFormulario(id) {
   if (zonaSel && Array.from(zonaEl.options).some((o) => o.value === zonaSel)) {
     zonaEl.value = zonaSel;
   }
+  // Tabla de referencia: la guardada; lagunas antiguas sin tabla → Nicovita.
+  document.getElementById('tablaRef').value = laguna
+    ? FeedingEngine.tablaDe(laguna) : tablaPorDefectoDeFinca(fincaSel);
+  actualizarCampoTa();
   document.getElementById('btnCancelarEdicion').style.display = laguna ? 'inline-block' : 'none';
   document.getElementById('btnEliminar').style.display = laguna ? 'inline-block' : 'none';
 }
@@ -830,6 +854,8 @@ function limpiarFormulario() {
   poblarSelectorFincaForm();
   document.getElementById('finca').value = fincaActiva;
   poblarSelectorZona(fincaActiva);
+  document.getElementById('tablaRef').value = tablaPorDefectoDeFinca(fincaActiva);
+  actualizarCampoTa();
   document.getElementById('btnCancelarEdicion').style.display = 'none';
   document.getElementById('btnEliminar').style.display = 'none';
 }
@@ -955,6 +981,7 @@ document.getElementById('densidad').addEventListener('input', recalcularSembrado
 document.getElementById('finca').addEventListener('change', (e) => {
   poblarSelectorZona(e.target.value);
 });
+document.getElementById('tablaRef').addEventListener('change', actualizarCampoTa);
 
 // Selector de finca activa (arriba): cambia la finca en uso y refresca todo.
 document.getElementById('filtroFinca').addEventListener('change', (e) => {
@@ -1133,7 +1160,10 @@ function alCerrarSesion() {
 // Aviso cuando un usuario (no admin) todavía no tiene zonas asignadas.
 function actualizarEstadoAcceso() {
   let banner = document.getElementById('avisoSinZonas');
-  const sinZonas = !esAdmin() && zonasPermitidas().length === 0;
+  // Las fincas sin zonas (AQH, SFH) no necesitan asignación: el usuario ve
+  // toda su finca, así que el aviso solo aplica a fincas que sí tienen zonas.
+  const fincaTieneZonas = zonasDeFinca(fincaActiva).length > 0;
+  const sinZonas = !esAdmin() && fincaTieneZonas && zonasPermitidas().length === 0;
   if (sinZonas) {
     if (!banner) {
       banner = document.createElement('div');
