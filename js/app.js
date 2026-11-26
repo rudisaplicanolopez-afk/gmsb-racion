@@ -359,6 +359,30 @@ function programacionHTML(laguna, r) {
     </div>`;
 }
 
+// Selector visible de la tabla de referencia (en "Ración de hoy"): cambia la
+// tabla de la laguna con un toque y recalcula teórica y real.
+function cambiarTabla(tabla) {
+  const laguna = Storage.getLaguna(lagunaSeleccionadaId);
+  if (!laguna || !FeedingEngine.TABLAS_REFERENCIA[tabla]) return;
+  laguna.tablaRef = tabla;
+  Storage.upsertLaguna(laguna);
+  renderRacion();
+  mostrarConfirmacion(`Tabla de referencia: ${FeedingEngine.TABLAS_REFERENCIA[tabla].nombre}`);
+}
+window.cambiarTabla = cambiarTabla;
+
+function selectorTablaHTML(laguna) {
+  const actual = FeedingEngine.tablaDe(laguna);
+  const pills = Object.entries(FeedingEngine.TABLAS_REFERENCIA).map(([k, t]) =>
+    `<button type="button" class="consumo-pill${k === actual ? ' activo' : ''}" onclick="cambiarTabla('${k}')">${t.nombre}</button>`
+  ).join('');
+  return `
+    <div class="consumo-selector selector-tabla">
+      <div class="consumo-label">📊 Tabla de referencia de alimentación:</div>
+      <div class="consumo-pills">${pills}</div>
+    </div>`;
+}
+
 // Ajuste de consumo (triángulo de arrastre): guarda el % y recalcula la ración real.
 function cambiarConsumo(pct) {
   const laguna = Storage.getLaguna(lagunaSeleccionadaId);
@@ -446,7 +470,7 @@ function renderRacion() {
 
   const suf = esHoy ? 'HOY' : `Día ${r.diaCultivo}`;
   const etConsumo = (r.consumoPct === 100) ? '' : ` · al ${r.consumoPct}%`;
-  cont.innerHTML = nav + progresoHTML(laguna, r) + `
+  cont.innerHTML = nav + progresoHTML(laguna, r) + selectorTablaHTML(laguna) + `
     <div class="ration-grid">
       <div class="ration-card destacado">
         <div class="valor" data-count="${r.kgDia.toFixed(1)}" data-dec="1" data-suf=" kg">${r.kgDia.toFixed(1)} kg</div>
