@@ -152,14 +152,27 @@ function aplicarAnimRacion(animate) {
   }
 }
 
+// Lagunas que el usuario puede ver en la finca activa.
+// - Admin: todas las de la finca.
+// - Usuario en finca CON zonas (GMSB, CRIMASA, CADELPA): solo las de sus zonas;
+//   sin zonas asignadas no ve ninguna (coincide con el aviso).
+// - Usuario en finca SIN zonas (AQH, SFH): toda su finca.
+function lagunasVisibles() {
+  let lagunas = Storage.getLagunas().filter((l) => fincaDe(l) === fincaActiva);
+  if (!esAdmin() && zonasDeFinca(fincaActiva).length > 0) {
+    const permitidas = zonasPermitidas().map(String);
+    lagunas = lagunas.filter((l) => permitidas.includes(String(l.zona)));
+  }
+  return lagunas;
+}
+
 function renderListaLagunas() {
-  let lagunas = Storage.getLagunas();
   const cont = document.getElementById('listaLagunas');
   const vacio = document.getElementById('sinLagunas');
   cont.innerHTML = '';
 
-  // Filtrar SIEMPRE por finca activa (no se mezclan datos entre fincas).
-  lagunas = lagunas.filter((l) => fincaDe(l) === fincaActiva);
+  // Filtrar SIEMPRE por finca activa y permisos (no se mezclan datos entre fincas).
+  let lagunas = lagunasVisibles();
   // Filtrar por zona seleccionada
   if (zonaFiltro !== 'todas') {
     lagunas = lagunas.filter((l) => String(l.zona) === String(zonaFiltro));
@@ -172,8 +185,11 @@ function renderListaLagunas() {
   vacio.style.display = lagunas.length ? 'none' : 'block';
   if (!lagunas.length) {
     const totalGlobal = Storage.getLagunas().length;
-    const enFinca = Storage.getLagunas().filter((l) => fincaDe(l) === fincaActiva).length;
-    if (zonaFiltro !== 'todas' && enFinca) {
+    const enFinca = lagunasVisibles().length;
+    const sinZonas = !esAdmin() && zonasDeFinca(fincaActiva).length > 0 && zonasPermitidas().length === 0;
+    if (sinZonas) {
+      vacio.innerHTML = 'Tu cuenta aún no tiene zonas asignadas, por eso no ves lagunas.';
+    } else if (zonaFiltro !== 'todas' && enFinca) {
       vacio.innerHTML = 'No hay lagunas en esta zona.';
     } else if (totalGlobal && !enFinca) {
       vacio.innerHTML = `No hay lagunas en la finca <strong>${fincaActiva}</strong>. Toca <strong>➕ Nueva laguna</strong> para crear una aquí.`;
@@ -232,7 +248,7 @@ function renderResumen() {
   const panel = document.getElementById('panelResumen');
   if (!cont || !panel) return;
   // Solo la finca activa (no se mezclan totales entre fincas).
-  const lagunas = Storage.getLagunas().filter((l) => fincaDe(l) === fincaActiva);
+  const lagunas = lagunasVisibles();
   if (!lagunas.length) { panel.hidden = true; return; }
   let activas = 0;
   lagunas.forEach((l) => {
@@ -305,7 +321,8 @@ window.programarDia = programarDia;
 
 // Exportar toda la programación de alimento (todas las lagunas) a CSV.
 function exportarProgramacion() {
-  const lagunas = Storage.getLagunas();
+  // Admin: todas las fincas. Usuario: solo lo que puede ver.
+  const lagunas = esAdmin() ? Storage.getLagunas() : lagunasVisibles();
   const filas = [['Laguna', 'Zona', 'Dia', 'Fecha', 'Kg programado']];
   lagunas.forEach((l) => {
     const prog = l.programado || {};
