@@ -818,6 +818,7 @@ body::before {
 .filtro-finca label{color:var(--texto)}
 .filtro-finca select{border-color:var(--verde-500);color:var(--card-info-valor);font-weight:700}
 .filtro-finca select:disabled{opacity:1;cursor:default}
+.finca-fija{display:inline-flex;align-items:center;gap:.3rem;padding:.35rem .8rem;border-radius:999px;background:var(--card-info-bg);color:var(--card-info-valor);font-weight:700;font-size:.9rem;cursor:default}
 
 /* Panel admin: selects de rol + finca por usuario */
 .usuario-selects{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.35rem}

@@ -92,13 +92,30 @@ function poblarFiltroFinca() {
   const sel = document.getElementById('filtroFinca');
   const cont = document.getElementById('filtroFincaCont');
   if (!sel) return;
+  // Etiqueta fija para usuarios (no admin): su finca no se puede cambiar, así
+  // que no se muestra como menú (parecía un selector descompuesto).
+  let fija = document.getElementById('fincaFija');
+  if (!fija && cont) {
+    fija = document.createElement('span');
+    fija.id = 'fincaFija';
+    fija.className = 'finca-fija';
+    cont.appendChild(fija);
+  }
   if (puedeElegirFinca()) {
     sel.innerHTML = LISTA_FINCAS.map((f) => `<option value="${f}">${FINCAS[f].nombre}</option>`).join('');
     sel.disabled = false;
+    sel.style.display = '';
+    if (fija) fija.style.display = 'none';
   } else {
     const f = fincaDelPerfil();
     sel.innerHTML = `<option value="${f}">${FINCAS[f].nombre}</option>`;
     sel.disabled = true;
+    sel.style.display = 'none';
+    if (fija) {
+      fija.textContent = `${FINCAS[f].nombre} 🔒`;
+      fija.title = 'Tu cuenta está asignada a esta finca. Solo el administrador puede cambiarla.';
+      fija.style.display = '';
+    }
   }
   if (!LISTA_FINCAS.includes(fincaActiva)) fincaActiva = FINCA_POR_DEFECTO;
   sel.value = fincaActiva;
