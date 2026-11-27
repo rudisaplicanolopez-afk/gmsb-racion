@@ -227,20 +227,50 @@ function renderListaLagunas() {
     }
   }
 
-  lagunas.forEach((l) => {
+  // Botón de una laguna: el borde y el % toman el color de su estado.
+  const crearChip = (l) => {
     const chip = document.createElement('button');
     chip.type = 'button';
-    chip.className = 'chip-laguna' + (l.id === lagunaSeleccionadaId ? ' activo' : '');
     const est = estadoLaguna(l);
+    chip.className = `chip-laguna est-${est.clase}` + (l.id === lagunaSeleccionadaId ? ' activo' : '');
     const pct = (est.pct != null) ? `<small class="sem-pct">${est.pct >= 0 ? '+' : ''}${est.pct.toFixed(0)}%</small>` : '';
     chip.innerHTML = `<span class="sem sem-${est.clase}"></span><span>${l.nombre}</span>${pct}`;
     chip.title = 'Zona ' + (l.zona || '-') + (est.pct != null ? ` · crecimiento ${est.pct >= 0 ? '+' : ''}${est.pct.toFixed(0)}% vs esperado` : '');
     chip.onclick = () => seleccionarLaguna(l.id);
-    cont.appendChild(chip);
-  });
+    return chip;
+  };
+
+  // Agrupar por zona cuando se ven todas las zonas de una finca que las usa.
+  const zonasPresentes = [...new Set(lagunas.map((l) => String(l.zona || '')))];
+  const agrupar = zonasDeFinca(fincaActiva).length > 0 && zonaFiltro === 'todas' && zonasPresentes.length > 1;
+  if (agrupar) {
+    cont.className = 'lagunas-zonas';
+    zonasPresentes
+      .sort((a, b) => (Number(a) || 99) - (Number(b) || 99))
+      .forEach((z) => {
+        const deZona = lagunas.filter((l) => String(l.zona || '') === z);
+        const nBad = deZona.filter((l) => estadoLaguna(l).clase === 'bad').length;
+        const nWarn = deZona.filter((l) => estadoLaguna(l).clase === 'warn').length;
+        const grupo = document.createElement('div');
+        grupo.className = 'zona-grupo';
+        grupo.innerHTML = `<div class="zona-h"><span>${z ? 'Zona ' + z : 'Sin zona'}</span><span class="zona-n">${deZona.length} laguna${deZona.length === 1 ? '' : 's'}</span>`
+          + (nBad ? `<span class="zona-n"><i class="sem sem-bad"></i> ${nBad} revisar</span>` : '')
+          + (nWarn ? `<span class="zona-n"><i class="sem sem-warn"></i> ${nWarn} atención</span>` : '')
+          + '</div>';
+        const grid = document.createElement('div');
+        grid.className = 'lagunas-grid';
+        deZona.forEach((l) => grid.appendChild(crearChip(l)));
+        grupo.appendChild(grid);
+        cont.appendChild(grupo);
+      });
+  } else {
+    cont.className = 'lagunas-grid';
+    lagunas.forEach((l) => cont.appendChild(crearChip(l)));
+  }
 
   const leyenda = document.getElementById('semLeyenda');
-  if (leyenda) leyenda.hidden = !lagunas.length;
+  // style.display (no hidden): el CSS de la leyenda le gana al atributo hidden.
+  if (leyenda) leyenda.style.display = lagunas.length ? '' : 'none';
   renderResumen();
 }
 
