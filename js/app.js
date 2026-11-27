@@ -298,6 +298,21 @@ function seleccionarLaguna(id) {
   renderListaLagunas();
   renderRacion();
   cargarFormulario(id);
+  irASeccion('panelRacion'); // baja sola a la ración (antes había que bajar a mano)
+}
+
+// Desplaza la página hasta una sección. Si el encabezado queda fijo arriba
+// (computadora), la deja justo debajo de él; en celular el encabezado no es fijo.
+function irASeccion(id) {
+  const el = document.getElementById(id);
+  // Visible = ocupa espacio (la ración usa style.display, no el atributo hidden).
+  if (!el || !el.getClientRects().length) return;
+  const header = document.querySelector('.app-header');
+  const fijo = header && ['sticky', 'fixed'].includes(getComputedStyle(header).position);
+  const alto = fijo ? header.getBoundingClientRect().height : 0;
+  const y = el.getBoundingClientRect().top + window.scrollY - alto - 12;
+  const suave = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  window.scrollTo({ top: Math.max(0, y), behavior: suave ? 'smooth' : 'auto' });
 }
 
 // Fecha calendario correspondiente a un día de cultivo.
@@ -1021,6 +1036,7 @@ document.getElementById('btnEditarLaguna').addEventListener('click', () => {
   abrirFormulario();
 });
 document.getElementById('btnCerrarFormulario').addEventListener('click', cerrarFormulario);
+document.getElementById('btnVolverLagunas').addEventListener('click', () => irASeccion('seccionLagunas'));
 
 // Cálculo automático de Sembrados (PL) = Área (Ha) × 10,000 m² × Densidad (PL/m²).
 // Se recalcula al escribir el área o la densidad. El campo sigue siendo editable

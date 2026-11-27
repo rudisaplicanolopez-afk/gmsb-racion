@@ -343,9 +343,11 @@ body::before {
 }
 .tarjeta__head .tarjeta__titulo { margin: 0; }
 .btn--sm { padding: 0.45rem 0.85rem; font-size: 0.85rem; }
+.racion-acciones { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 @media (max-width: 480px) {
   .tarjeta__head { gap: 0.6rem; }
   .tarjeta__head .btn--sm { flex: 1; justify-content: center; }
+  .racion-acciones { flex: 1 1 100%; }
 }
 .tarjeta__titulo .num {
   display: grid; place-items: center;

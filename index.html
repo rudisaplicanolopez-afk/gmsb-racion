@@ -87,7 +87,7 @@
   </section>
 
   <!-- 1. Selector de laguna -->
-  <section class="tarjeta">
+  <section class="tarjeta" id="seccionLagunas">
     <div class="tarjeta__head">
       <h2 class="tarjeta__titulo"><span class="num">1</span> Selecciona la laguna</h2>
       <button type="button" id="btnNuevaLaguna" class="btn btn--primario btn--sm">➕ Nueva laguna</button>
@@ -114,7 +114,10 @@
   <section class="tarjeta" id="panelRacion" hidden>
     <div class="tarjeta__head">
       <h2 class="tarjeta__titulo"><span class="num">2</span> Ración de hoy</h2>
-      <button type="button" id="btnEditarLaguna" class="btn btn--neutro btn--sm">✏️ Editar laguna</button>
+      <div class="racion-acciones">
+        <button type="button" id="btnVolverLagunas" class="btn btn--neutro btn--sm" title="Volver a la lista de lagunas">↑ Lagunas</button>
+        <button type="button" id="btnEditarLaguna" class="btn btn--neutro btn--sm">✏️ Editar laguna</button>
+      </div>
     </div>
     <div id="infoLaguna" class="info-laguna"></div>
     <div id="racionContenido"></div>
