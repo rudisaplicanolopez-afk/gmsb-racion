@@ -34,6 +34,18 @@ const FIELDS = [
 function tablaPorDefectoDeFinca(finca) {
   return finca === 'AQH' ? 'aqh_gramo' : FeedingEngine.TABLA_POR_DEFECTO;
 }
+// Llena el selector de tabla del FORMULARIO solo con las tablas de esa finca
+// (la tabla AQH solo aparece para AQH). Si hay una sola, el campo se oculta.
+function poblarSelectorTabla(finca, valor) {
+  const sel = document.getElementById('tablaRef');
+  const campo = document.getElementById('campoTablaRef');
+  if (!sel) return;
+  const tablas = FeedingEngine.tablasDeFinca(finca);
+  sel.innerHTML = tablas.map((k) => `<option value="${k}">${FeedingEngine.TABLAS_REFERENCIA[k].nombre}</option>`).join('');
+  sel.value = tablas.includes(valor) ? valor : tablaPorDefectoDeFinca(finca);
+  if (campo) campo.style.display = tablas.length > 1 ? '' : 'none';
+  actualizarCampoTa();
+}
 // Con la tabla por gramo el TA no se usa (sí el TC, que da el peso teórico).
 function actualizarCampoTa() {
   const sel = document.getElementById('tablaRef');
@@ -412,7 +424,7 @@ function programacionHTML(laguna, r) {
 // tabla de la laguna con un toque y recalcula teórica y real.
 function cambiarTabla(tabla) {
   const laguna = Storage.getLaguna(lagunaSeleccionadaId);
-  if (!laguna || !FeedingEngine.TABLAS_REFERENCIA[tabla]) return;
+  if (!laguna || !FeedingEngine.tablasDeFinca(fincaDe(laguna)).includes(tabla)) return;
   laguna.tablaRef = tabla;
   Storage.upsertLaguna(laguna);
   renderRacion();
@@ -421,9 +433,12 @@ function cambiarTabla(tabla) {
 window.cambiarTabla = cambiarTabla;
 
 function selectorTablaHTML(laguna) {
+  // Solo las tablas de la finca de la laguna; con una sola no hay nada que elegir.
+  const tablas = FeedingEngine.tablasDeFinca(fincaDe(laguna));
+  if (tablas.length < 2) return '';
   const actual = FeedingEngine.tablaDe(laguna);
-  const pills = Object.entries(FeedingEngine.TABLAS_REFERENCIA).map(([k, t]) =>
-    `<button type="button" class="consumo-pill${k === actual ? ' activo' : ''}" onclick="cambiarTabla('${k}')">${t.nombre}</button>`
+  const pills = tablas.map((k) =>
+    `<button type="button" class="consumo-pill${k === actual ? ' activo' : ''}" onclick="cambiarTabla('${k}')">${FeedingEngine.TABLAS_REFERENCIA[k].nombre}</button>`
   ).join('');
   return `
     <div class="consumo-selector selector-tabla">
@@ -912,9 +927,7 @@ function cargarFormulario(id) {
     zonaEl.value = zonaSel;
   }
   // Tabla de referencia: la guardada; lagunas antiguas sin tabla → Nicovita.
-  document.getElementById('tablaRef').value = laguna
-    ? FeedingEngine.tablaDe(laguna) : tablaPorDefectoDeFinca(fincaSel);
-  actualizarCampoTa();
+  poblarSelectorTabla(fincaSel, laguna ? FeedingEngine.tablaDe(laguna) : null);
   document.getElementById('btnCancelarEdicion').style.display = laguna ? 'inline-block' : 'none';
   document.getElementById('btnEliminar').style.display = laguna ? 'inline-block' : 'none';
 }
@@ -927,8 +940,7 @@ function limpiarFormulario() {
   poblarSelectorFincaForm();
   document.getElementById('finca').value = fincaActiva;
   poblarSelectorZona(fincaActiva);
-  document.getElementById('tablaRef').value = tablaPorDefectoDeFinca(fincaActiva);
-  actualizarCampoTa();
+  poblarSelectorTabla(fincaActiva, null);
   document.getElementById('btnCancelarEdicion').style.display = 'none';
   document.getElementById('btnEliminar').style.display = 'none';
 }
@@ -1054,6 +1066,10 @@ document.getElementById('densidad').addEventListener('input', recalcularSembrado
 // Al cambiar la finca en el formulario, se recargan sus zonas.
 document.getElementById('finca').addEventListener('change', (e) => {
   poblarSelectorZona(e.target.value);
+  // Las tablas también dependen de la finca (AQH tiene la suya). Laguna nueva:
+  // toma la tabla por defecto de la finca elegida; al editar, conserva la suya si vale.
+  const esNueva = !document.getElementById('lagunaId').value;
+  poblarSelectorTabla(e.target.value, esNueva ? null : document.getElementById('tablaRef').value);
 });
 document.getElementById('tablaRef').addEventListener('change', actualizarCampoTa);
 

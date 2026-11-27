@@ -22,6 +22,7 @@ const TABLAS_REFERENCIA = {
   nicovita:  { nombre: 'Nicovita (% biomasa)' },
   aqh_gramo: {
     nombre: 'AQH (g por camarón)',
+    fincas: ['AQH'], // tabla propia de AQH: solo se ofrece y se aplica en esa finca
     // [peso del camarón (g), g de alimento por camarón al día]
     puntos: [
       [0.5, 0.03], [1, 0.06], [1.5, 0.08], [2, 0.14], [2.5, 0.16], [3, 0.2],
@@ -35,9 +36,21 @@ const TABLAS_REFERENCIA = {
   },
 };
 
+// Tablas disponibles para una finca (las que no indican fincas valen para todas).
+function tablasDeFinca(finca) {
+  return Object.keys(TABLAS_REFERENCIA).filter((k) => {
+    const f = TABLAS_REFERENCIA[k].fincas;
+    return !f || f.includes(finca);
+  });
+}
+
+// Tabla que usa la laguna. Si tiene una tabla que no corresponde a su finca
+// (ej. AQH en una laguna de GMSB), se usa la de por defecto. Lagunas antiguas
+// sin finca se consideran de GMSB.
 function tablaDe(laguna) {
   const t = laguna && laguna.tablaRef;
-  return TABLAS_REFERENCIA[t] ? t : TABLA_POR_DEFECTO;
+  const finca = (laguna && laguna.finca) || 'GMSB';
+  return (TABLAS_REFERENCIA[t] && tablasDeFinca(finca).includes(t)) ? t : TABLA_POR_DEFECTO;
 }
 
 // g de alimento por camarón al día para un peso. En los pesos de la tabla da
@@ -244,6 +257,7 @@ window.FeedingEngine = {
   supervivenciaTeorica,
   gramosPorCamaron,
   tablaDe,
+  tablasDeFinca,
   TABLAS_REFERENCIA,
   TABLA_POR_DEFECTO,
 };
