@@ -1007,10 +1007,25 @@ document.getElementById('formLaguna').addEventListener('submit', (e) => {
   const id = document.getElementById('lagunaId').value || `laguna_${Date.now()}`;
   // Partir de la laguna existente para no perder campos que no están en el
   // formulario (ej. consumoPct, que se ajusta con la barra de consumo).
-  const laguna = Object.assign({}, Storage.getLaguna(id) || {}, { id });
+  const anterior = Storage.getLaguna(id);
+  const laguna = Object.assign({}, anterior || {}, { id });
   FIELDS.forEach((f) => {
     laguna[f] = document.getElementById(f).value;
   });
+
+  // Fecha de siembra nueva = ciclo nuevo: se archivan las mediciones del ciclo
+  // anterior para empezar la biometría desde cero (o solo se corrige la fecha).
+  let cicloNuevo = false;
+  if (anterior && anterior.fechaSiembra && anterior.fechaSiembra !== laguna.fechaSiembra && tieneDatosDeCiclo(anterior)) {
+    const nBios = Array.isArray(anterior.biometrias) ? anterior.biometrias.length : 0;
+    cicloNuevo = confirm(
+      `Cambiaste la fecha de siembra de "${nombre}" (${anterior.fechaSiembra} → ${laguna.fechaSiembra}).\n\n`
+      + `• Aceptar: CICLO NUEVO. Las ${nBios} mediciones y la programación del ciclo anterior se archivan y la biometría empieza desde cero.\n`
+      + '• Cancelar: solo corregir la fecha y conservar las mediciones.'
+    );
+    if (cicloNuevo) iniciarCicloNuevo(laguna, anterior);
+    else reubicarBiometrias(laguna);
+  }
 
   try {
     Storage.upsertLaguna(laguna);
@@ -1031,8 +1046,51 @@ document.getElementById('formLaguna').addEventListener('submit', (e) => {
   renderRacion();
   cargarFormulario(id);
   cerrarFormulario();
-  mostrarConfirmacion(`Laguna "${nombre}" guardada correctamente.`);
+  mostrarConfirmacion(cicloNuevo
+    ? `Ciclo nuevo en "${nombre}": mediciones en cero desde ${laguna.fechaSiembra}.`
+    : `Laguna "${nombre}" guardada correctamente.`);
 });
+
+// ¿La laguna tiene datos que dependen del ciclo (mediciones o programación)?
+function tieneDatosDeCiclo(l) {
+  const bios = Array.isArray(l.biometrias) ? l.biometrias.length : 0;
+  const prog = l.programado ? Object.keys(l.programado).length : 0;
+  return bios > 0 || prog > 0;
+}
+
+// Ciclo nuevo: guarda una copia del ciclo anterior en historialCiclos (no se
+// muestra, pero no se pierde) y deja la laguna lista para medir desde cero.
+function iniciarCicloNuevo(laguna, anterior) {
+  const archivo = {
+    fechaSiembra: anterior.fechaSiembra,
+    archivadoEl: new Date().toISOString().slice(0, 10),
+    biometrias: anterior.biometrias || [],
+    programado: anterior.programado || {},
+    consumoPct: anterior.consumoPct,
+  };
+  laguna.historialCiclos = (Array.isArray(anterior.historialCiclos) ? anterior.historialCiclos : []).concat([archivo]);
+  laguna.biometrias = [];
+  laguna.programado = {};
+  laguna.consumoPct = 100;
+  laguna.pesoReal = '';
+  laguna.supervivenciaReal = '';
+  laguna.fca = '';
+}
+
+// Solo se corrigió la fecha (mismo ciclo): cada medición se reubica en su día
+// según su fecha real, para que la gráfica siga cuadrando.
+function reubicarBiometrias(laguna) {
+  if (!Array.isArray(laguna.biometrias)) return;
+  laguna.biometrias = laguna.biometrias
+    .map((b) => {
+      if (!b.fecha) return b;
+      const [y, m, d] = String(b.fecha).split('-').map(Number);
+      return Object.assign({}, b, { dia: FeedingEngine.diaCultivoDesde(laguna.fechaSiembra, new Date(y, m - 1, d)) });
+    })
+    .filter((b) => Number(b.dia) >= 1)
+    .sort((a, b) => a.dia - b.dia);
+  sincronizarRealDesdeBiometrias(laguna);
+}
 
 function mostrarConfirmacion(mensaje) {
   let aviso = document.getElementById('avisoGuardado');
